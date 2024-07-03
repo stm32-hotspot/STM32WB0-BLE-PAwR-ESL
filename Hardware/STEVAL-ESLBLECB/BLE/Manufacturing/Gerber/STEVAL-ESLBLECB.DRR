@@ -1,0 +1,19 @@
+----------------------------------------------------------------------------------------------------------------------------------
+NCDrill File Report For: STEVAL-ESLBLECB.PcbDoc   6/30/2024  9:11:38 PM
+----------------------------------------------------------------------------------------------------------------------------------
+
+Layer Pair : Top Layer to Bottom Layer
+ASCII Plated RoundHoles File : STEVAL-ESLBLECB-Plated.TXT
+ASCII Non-Plated RoundHoles File : STEVAL-ESLBLECB-NonPlated.TXT
+
+Tool       Hole Size               Hole Tolerance               Hole Type       Hole Count   Plated         Tool Travel
+----------------------------------------------------------------------------------------------------------------------------------
+T1      0.2mm (8mil)                                              Round             157       PTH        200.56mm (7.90inch)
+T2      0.254mm (10mil)                                           Round             229       PTH        559.73mm (22.04inch)
+T3      0.3mm (12mil)                                             Round             2         PTH        4.08mm (0.16inch)
+T4      2mm (79mil)                                               Round             3         PTH        71.92mm (2.83inch)
+T5      0.97mm (38mil)                                            Round             2         NPTH       6.35mm (0.25inch)
+----------------------------------------------------------------------------------------------------------------------------------
+Totals                                                                              393
+
+Total Processing Time (hh:mm:ss) : 00:00:00

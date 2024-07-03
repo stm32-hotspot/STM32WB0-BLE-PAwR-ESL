@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workspace>
+    <project>
+        <path>$WS_DIR$\BLE_ESL.ewp</path>
+    </project>
+    <batchBuild>
+        <batchDefinition>
+            <name>9_ESLs</name>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_0_0</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_0_1</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_0_2</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_1_0</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_1_1</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_1_2</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_2_0</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_2_1</configuration>
+            </member>
+            <member>
+                <project>BLE_ESL</project>
+                <configuration>BLE_ESL_2_2</configuration>
+            </member>
+        </batchDefinition>
+    </batchBuild>
+</workspace>

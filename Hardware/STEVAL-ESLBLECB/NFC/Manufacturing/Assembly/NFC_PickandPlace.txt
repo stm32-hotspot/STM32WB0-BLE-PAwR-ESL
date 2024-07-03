@@ -1,0 +1,16 @@
+Altium Designer Pick and Place Locations
+
+========================================================================================================================
+File Design Information:
+
+Date:       30/06/24
+Time:       21:26
+Revision:   5e15674adb1c126aec2991f008d4c46f187f2064
+Variant:    No variations
+Units used: mm
+
+Designator Comment          Layer    Footprint          Center-X(mm) Center-Y(mm) Rotation Description                                                                          
+ANT        ST25D_ANT        TopLayer ESL_NFC_ANT        7.7821       9.9418       0        ""                                                                                   
+C1         Capacitor        TopLayer C0402              2.3000       8.9500       0        "Multilayer Ceramic Capacitor, 1.5 pF, 50 V, ± 0.1pF, C0G (NP0), 0402 [1005 Metric]" 
+CN1        5034800540       TopLayer CON_5034800540_MOL 1.9530       2.4430       270      "No Description Available"                                                           
+U1         ST25DV04K-IER6C3 TopLayer UFDFPN8_STM        2.3867       6.5697       270      "No Description Available"                                                           

@@ -1,0 +1,17 @@
+**/EWARM/**/Exe/
+**/EWARM/settings/
+**/EWARM/**/BrowseInfo/
+**/EWARM/**/List/
+*.ninja_log
+*.ninja_deps
+*.dep
+*uvguix.*
+*.o
+*.d
+*.axf
+*.buld_log.htm
+*.hex
+*.htm
+*.lnp
+*.map
+RTE_Components.h
