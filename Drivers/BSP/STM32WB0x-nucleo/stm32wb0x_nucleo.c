@@ -356,7 +356,7 @@ int32_t BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef ButtonMode)
     HAL_GPIO_Init(BUTTON_PORT[Button], &GPIO_Init);
 
     /* Enable and set Button EXTI Interrupt to the lowest priority */
-    HAL_NVIC_SetPriority(BUTTON_IRQn[Button], 0x00, 0);
+    HAL_NVIC_SetPriority(BUTTON_IRQn[Button], NVIC_LOW_PRIORITY, 0);
     HAL_NVIC_EnableIRQ(BUTTON_IRQn[Button]);
 
   }
@@ -493,6 +493,18 @@ int32_t BSP_COM_Init(COM_TypeDef COM, COM_InitTypeDef *COM_Init)
       {
         status = BSP_ERROR_PERIPH_FAILURE;
       }
+    }
+    if (HAL_UARTEx_SetTxFifoThreshold(&hcom_uart[COM], UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+    {
+      status = BSP_ERROR_PERIPH_FAILURE;
+    }
+    if (HAL_UARTEx_SetRxFifoThreshold(&hcom_uart[COM], UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+    {
+      status = BSP_ERROR_PERIPH_FAILURE;
+    }
+    if (HAL_UARTEx_EnableFifoMode(&hcom_uart[COM]) != HAL_OK)
+    {
+      status = BSP_ERROR_PERIPH_FAILURE;
     }
   }
 

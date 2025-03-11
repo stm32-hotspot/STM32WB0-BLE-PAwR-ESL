@@ -53,7 +53,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32wb0x_hal.h"
-
 /** @addtogroup STM32WB0x_HAL_Driver
   * @{
   */
@@ -72,6 +71,7 @@ typedef struct
 {
   uint8_t periodicCalibration; /*!< Periodic calibration enable status */
   uint32_t periodicCalibrationInterval;  /*!< Periodic calibration interval in ms, to disable set to 0 */
+  uint32_t periodicCalibrationCheckDuration;  /*!< Interval between calibration start and timeout interrupt to check if calibration is completed */
   bool calibration_in_progress;  /*!< Flag to indicate that a periodic calibration has been started */
 } CalibrationSettingsTypeDef;
 
@@ -149,7 +149,13 @@ typedef struct
  * It is expressed in STU. */
 #define RADIO_ACTIVITY_MARGIN (204800)
 
+/* Time after that calibration should be completed
+ * It is expressed in STU.*/
+
+#define CALIBRATION_CHECK_DURATION (100)
+
 /* Threshold to take into account the calibration duration. */
+ 
 #define CALIB_SAFE_THR (370)
 
 /* Minimum threshold to safely program the radio timer (expressed in STU) */
@@ -332,6 +338,8 @@ void HAL_RADIO_TIMER_Init(RADIO_TIMER_InitTypeDef *RADIO_TIMER_InitStruct)
   if (RADIO_TIMER_InitStruct->periodicCalibrationInterval == 0)
   {
     RADIO_TIMER_Context.calibrationSettings.periodicCalibrationInterval = HAL_RADIO_TIMER_MachineTimeToSysTime(0x50000000);
+
+    
   }
   else
   {
@@ -339,6 +347,7 @@ void HAL_RADIO_TIMER_Init(RADIO_TIMER_InitTypeDef *RADIO_TIMER_InitStruct)
     RADIO_TIMER_Context.calibrationSettings.periodicCalibrationInterval = MIN(RADIO_TIMER_Context.calibrationSettings.periodicCalibrationInterval,
                                                                               HAL_RADIO_TIMER_MachineTimeToSysTime(TIMER_MAX_VALUE - TIMER_WRAPPING_MARGIN));
   }
+  RADIO_TIMER_Context.calibrationSettings.periodicCalibrationCheckDuration = CALIBRATION_CHECK_DURATION;
   RADIO_TIMER_Context.calibrationSettings.calibration_in_progress = FALSE;
 
   /* XTAL startup time configuration */
@@ -445,6 +454,12 @@ void HAL_RADIO_TIMER_Tick(void)
       {
         /* Collect calibration data */
         _updateCalibrationData();
+        RADIO_TIMER_Context.rootNode = _update_user_timeout(RADIO_TIMER_Context.rootNode, &expired);
+        if (expired == 1)
+        {
+          /* A new root timer is already expired, mimic timer expire */
+          INCREMENT_EXPIRE_COUNT;
+        }
       }
 
 #if defined (STM32WB06) || defined (STM32WB07)
@@ -454,13 +469,18 @@ void HAL_RADIO_TIMER_Tick(void)
         RADIO_TIMER_Context.radioTimer.pending = TRUE;
         _check_radio_activity(&RADIO_TIMER_Context.radioTimer, &expired);
         RADIO_TIMER_Context.rootNode = _update_user_timeout(RADIO_TIMER_Context.rootNode, &expired);
+        if (expired == 1)
+        {
+          /* A new root timer is already expired, mimic timer expire */
+          INCREMENT_EXPIRE_COUNT;
+        }
       }
 #else
-      _check_radio_activity(&RADIO_TIMER_Context.radioTimer, &expired);
+      _check_radio_activity(&RADIO_TIMER_Context.radioTimer, &expired); //Start Radio Timer after calibration
 #endif
 
-      HAL_RADIO_TIMER_StopVirtualTimer(&RADIO_TIMER_Context.calibrationTimer);
       /* Schedule next calibration event */
+      HAL_RADIO_TIMER_StopVirtualTimer(&RADIO_TIMER_Context.calibrationTimer);
       _start_timer(&RADIO_TIMER_Context.calibrationTimer,
                    HAL_RADIO_TIMER_GetCurrentSysTime() + RADIO_TIMER_Context.calibrationSettings.periodicCalibrationInterval);
     }
@@ -473,6 +493,7 @@ void HAL_RADIO_TIMER_Tick(void)
       if (HAL_RADIO_TIMER_GetCurrentSysTime() > (RADIO_TIMER_Context.calibrationData.last_calibration_time +
                                                  TIMER_SYSTICK_PER_FIVE_SECONDS))
       {
+        HAL_RADIO_TIMER_StopVirtualTimer(&RADIO_TIMER_Context.calibrationTimer);
         _calibration_callback(&RADIO_TIMER_Context.calibrationTimer);
       }
     }
@@ -635,6 +656,7 @@ uint32_t HAL_RADIO_TIMER_SetRadioTimerValue(uint32_t time, uint8_t event_type, u
       Make sure radio errors are disabled.
       This call is not needed if radio errors are not enabled by the BLE stack. */
       _set_controller_as_host();
+      _check_host_activity();
     }
   }
 #else
@@ -1187,11 +1209,15 @@ static void _update_xtal_startup_time(uint16_t hs_startup_time, int32_t freq1)
 
 static void _calibration_callback(void *handle)
 {
-  if (RADIO_TIMER_Context.calibrationSettings.periodicCalibration)
+  if(RADIO_TIMER_Context.calibrationSettings.calibration_in_progress == FALSE)
   {
-    _timer_start_calibration();
+    if (RADIO_TIMER_Context.calibrationSettings.periodicCalibration)
+    {
+      _timer_start_calibration();
+    }
+    RADIO_TIMER_Context.calibrationSettings.calibration_in_progress = TRUE;
   }
-  RADIO_TIMER_Context.calibrationSettings.calibration_in_progress = TRUE;
+  _start_timer(&RADIO_TIMER_Context.calibrationTimer, HAL_RADIO_TIMER_GetCurrentSysTime() + RADIO_TIMER_Context.calibrationSettings.periodicCalibrationCheckDuration);
 }
 
 static int32_t _start_timer(VTIMER_HandleType *timerHandle, uint64_t time)
@@ -1215,6 +1241,13 @@ static int32_t _start_timer(VTIMER_HandleType *timerHandle, uint64_t time)
       INCREMENT_EXPIRE_COUNT;
     }
   }
+  #if defined (STM32WB06) || defined (STM32WB07)
+  else
+  {
+    _check_host_activity();
+  }
+  #endif
+  
   return expired;
 }
 
@@ -1258,7 +1291,7 @@ static VTIMER_HandleType *_update_user_timeout(VTIMER_HandleType *rootNode, uint
       delay = curr->expiryTime - HAL_RADIO_TIMER_GetCurrentSysTime();
       if (delay > 0)
       {
-        /* Protection against interrupt must be used to avoid that the called function will be interrupted
+         /* Protection against interrupt must be used to avoid that the called function will be interrupted
           and so the timer programming will happen after the target time is already passed
           leading to a timer expiring after timer wraps, instead of the expected delay */
 #if defined (STM32WB06) || defined (STM32WB07)
@@ -1269,7 +1302,7 @@ static VTIMER_HandleType *_update_user_timeout(VTIMER_HandleType *rootNode, uint
           if ((RADIO_TIMER_Context.radioTimer.expiryTime >= curr->expiryTime) && RADIO_TIMER_Context.radioTimer.active)
           {
             RADIO_TIMER_Context.hostIsRadioPending = 1;
-          }
+          }          
         }
         else
         {
@@ -1443,14 +1476,28 @@ static void _updateCalibrationData(void)
 {
   if (RADIO_TIMER_Context.calibrationSettings.periodicCalibration)
   {
-    _get_calibration_data(&RADIO_TIMER_Context.calibrationData);
-    _update_xtal_startup_time(RADIO_TIMER_Context.hs_startup_time, RADIO_TIMER_Context.calibrationData.freq1);
-    _configureTxRxDelay(&RADIO_TIMER_Context, FALSE);
+
+    CalibrationDataTypeDef updatedCalibrationData;
+    _get_calibration_data(&updatedCalibrationData);
+    _update_xtal_startup_time(RADIO_TIMER_Context.hs_startup_time, updatedCalibrationData.freq1);
+    
+    ATOMIC_SECTION_BEGIN();
     RADIO_TIMER_Context.calibrationData.calibration_data_available = 1;
+    RADIO_TIMER_Context.calibrationData.freq = updatedCalibrationData.freq;
+    RADIO_TIMER_Context.calibrationData.freq1 = updatedCalibrationData.freq1;
+    RADIO_TIMER_Context.calibrationData.period = updatedCalibrationData.period;
+    RADIO_TIMER_Context.calibrationData.period1 = updatedCalibrationData.period1;
+    _update_system_time(&RADIO_TIMER_Context);
+    ATOMIC_SECTION_END();
+
+    _configureTxRxDelay(&RADIO_TIMER_Context, FALSE);
   }
+  else
+  {
   ATOMIC_SECTION_BEGIN();
   _update_system_time(&RADIO_TIMER_Context);
   ATOMIC_SECTION_END();
+  }
 }
 
 /* This function update the system time after a calibration.
@@ -1490,11 +1537,10 @@ static void _update_system_time(RADIO_TIMER_ContextTypeDef *context)
 static void _check_radio_activity(RADIO_TIMER_RadioHandleTypeDef *timerHandle, uint8_t *expired)
 {
   uint64_t nextCalibrationEvent, currentTime;
-
   *expired = 0;
-
   if (timerHandle->pending)
   {
+    
     nextCalibrationEvent = RADIO_TIMER_Context.calibrationData.last_calibration_time + \
                            RADIO_TIMER_Context.calibrationSettings.periodicCalibrationInterval;
 
@@ -1512,17 +1558,22 @@ static void _check_radio_activity(RADIO_TIMER_RadioHandleTypeDef *timerHandle, u
       }
       else
       {
+        
         RADIO_TIMER_Context.radioTimer.pending = FALSE;
         *expired = 1;
+        
       }
     }
     else
     {
+      
 #if defined (STM32WB06) || defined (STM32WB07)
       RADIO_TIMER_Context.waitCal = 1;
 #endif
+      
     }
     ATOMIC_SECTION_END();
+    
   }
 }
 

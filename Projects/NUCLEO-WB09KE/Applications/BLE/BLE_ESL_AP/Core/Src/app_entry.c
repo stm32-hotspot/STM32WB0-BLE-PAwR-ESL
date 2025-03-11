@@ -128,7 +128,7 @@ uint32_t MX_APPE_Init(void *p_param)
   
 #if (CFG_DEBUG_APP_TRACE != 0) && (CFG_DEBUG_APP_ADV_TRACE == 0)
   COM_InitTypeDef COM_Init = 
-  {
+  { 
    .BaudRate = 115200,
    .WordLength= COM_WORDLENGTH_8B,
    .StopBits = COM_STOPBITS_1,

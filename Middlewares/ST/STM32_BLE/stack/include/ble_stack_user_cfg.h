@@ -1,26 +1,25 @@
-
 /**
   ******************************************************************************
   * @file    ble_stack_user_cfg.h
   * @author  GPM WBL Application team
   * @brief   Bluetooth LE stack modular configuration options header file
-  * @details BLE_Config BLE stack configuration options  
+  * @details BLE_Config BLE stack configuration options
   * - The BLE stack v4.0 or later supports the following outstanding features:
-  *   -- Controller Privacy 
-  *   -- LE Secure Connections 
-  *   -- Controller Scan 
+  *   -- Controller Privacy
+  *   -- LE Secure Connections
+  *   -- Controller Scan
   *   -- Controller Data Length Extension
-  *   -- LE 2M/Coded PHY 
-  *   -- Extended Advertising 
-  *   -- Periodic Advertising and Synchronizer 
+  *   -- LE 2M/Coded PHY
+  *   -- Extended Advertising
+  *   -- Periodic Advertising and Synchronizer
   *    -- Periodic Advertising with Responses
-  *   -- L2CAP Connection Oriented Channels 
-  *   -- Constant Tone Extension 
-  *   -- Power Control & Path Loss Monitoring 
+  *   -- L2CAP Connection Oriented Channels
+  *   -- Constant Tone Extension
+  *   -- Power Control & Path Loss Monitoring
   *   -- Connection Support
-  *   -- LE Channel Classification 
-  *   -- Broadcast Isochronous Streams 
-  *   -- Connected Isochronous Streams 
+  *   -- LE Channel Classification
+  *   -- Broadcast Isochronous Streams
+  *   -- Connected Isochronous Streams
   ******************************************************************************
   * @attention
   *
@@ -42,16 +41,16 @@
 #include "app_conf.h"
 
 #define CONTROLLER_SCAN_ENABLED                   CFG_BLE_CONTROLLER_SCAN_ENABLED
-#define CONTROLLER_PRIVACY_ENABLED                CFG_BLE_CONTROLLER_PRIVACY_ENABLED 
-#define SECURE_CONNECTIONS_ENABLED                CFG_BLE_SECURE_CONNECTIONS_ENABLED 
-#define CONTROLLER_DATA_LENGTH_EXTENSION_ENABLED  CFG_BLE_CONTROLLER_DATA_LENGTH_EXTENSION_ENABLED 
+#define CONTROLLER_PRIVACY_ENABLED                CFG_BLE_CONTROLLER_PRIVACY_ENABLED
+#define SECURE_CONNECTIONS_ENABLED                CFG_BLE_SECURE_CONNECTIONS_ENABLED
+#define CONTROLLER_DATA_LENGTH_EXTENSION_ENABLED  CFG_BLE_CONTROLLER_DATA_LENGTH_EXTENSION_ENABLED
 #define CONTROLLER_2M_CODED_PHY_ENABLED           CFG_BLE_CONTROLLER_2M_CODED_PHY_ENABLED
-#define CONTROLLER_EXT_ADV_SCAN_ENABLED           CFG_BLE_CONTROLLER_EXT_ADV_SCAN_ENABLED 
-#define L2CAP_COS_ENABLED                         CFG_BLE_L2CAP_COS_ENABLED 
-#define CONTROLLER_PERIODIC_ADV_ENABLED           CFG_BLE_CONTROLLER_PERIODIC_ADV_ENABLED 
+#define CONTROLLER_EXT_ADV_SCAN_ENABLED           CFG_BLE_CONTROLLER_EXT_ADV_SCAN_ENABLED
+#define L2CAP_COS_ENABLED                         CFG_BLE_L2CAP_COS_ENABLED
+#define CONTROLLER_PERIODIC_ADV_ENABLED           CFG_BLE_CONTROLLER_PERIODIC_ADV_ENABLED
 #define CONTROLLER_PERIODIC_ADV_WR_ENABLED        CFG_BLE_CONTROLLER_PERIODIC_ADV_WR_ENABLED
 #define CONTROLLER_CTE_ENABLED                    CFG_BLE_CONTROLLER_CTE_ENABLED
-#define CONTROLLER_POWER_CONTROL_ENABLED          CFG_BLE_CONTROLLER_POWER_CONTROL_ENABLED 
+#define CONTROLLER_POWER_CONTROL_ENABLED          CFG_BLE_CONTROLLER_POWER_CONTROL_ENABLED
 #define CONNECTION_ENABLED                        CFG_BLE_CONNECTION_ENABLED
 #define CONTROLLER_CHAN_CLASS_ENABLED             CFG_BLE_CONTROLLER_CHAN_CLASS_ENABLED
 #define CONTROLLER_BIS_ENABLED                    CFG_BLE_CONTROLLER_BIS_ENABLED
@@ -64,6 +63,10 @@
 #  define CONTROLLER_ISO_ENABLED (1U) /* ISO Support: ENABLED */
 #else
 #  define CONTROLLER_ISO_ENABLED (0U) /* ISO Support: DISABLED */
+#endif
+
+#if !defined(DTM_DEBUG_ENABLED)
+#  define DTM_DEBUG_ENABLED (0U) /* Logging: DISABLED */
 #endif
 
 /* --------------------- Defines used by function prototypes -------------------- */
@@ -218,18 +221,18 @@ void GAP_central_connection_complete_handler(uint8_t status,
                                              uint16_t connectionHandle);
 
 uint8_t GAP_parse_connectable_advertising_report_ucfg(uint8_t* adv_buf,
-                                                   uint8_t extended);
+                                                      uint8_t extended);
 uint8_t GAP_parse_connectable_advertising_report_ucfg_weak(uint8_t* adv_buf,
-                                                        uint8_t extended);
+                                                           uint8_t extended);
 uint8_t GAP_parse_connectable_advertising_report(uint8_t* adv_buf,
-                                              uint8_t extended);
+                                                 uint8_t extended);
 
 uint8_t GAP_parse_advertising_report_ucfg(uint8_t* adv_buf,
-                                       uint8_t extended);
+                                          uint8_t extended);
 uint8_t GAP_parse_advertising_report_ucfg_weak(uint8_t* adv_buf,
-                                            uint8_t extended);
+                                               uint8_t extended);
 uint8_t GAP_parse_advertising_report(uint8_t* adv_buf,
-                                  uint8_t extended);
+                                     uint8_t extended);
 
 void GAP_DiscProcTimeoutcb_ucfg(uint8_t timer_id);
 void GAP_DiscProcTimeoutcb_ucfg_weak(uint8_t timer_id);
@@ -275,9 +278,9 @@ tBleStatus GAP_set_controller_random_address_ucfg(uint8_t random_address[6]);
 tBleStatus GAP_set_controller_random_address_ucfg_weak(uint8_t random_address[6]);
 tBleStatus GAP_set_controller_random_address_extended(uint8_t random_address[6]);
 
-tBleStatus GAP_init_advertising_sets_ucfg(uint8_t own_address_type);
-tBleStatus GAP_init_advertising_sets_ucfg_weak(uint8_t own_address_type);
-tBleStatus GAP_init_advertising_sets(uint8_t own_address_type);
+tBleStatus GAP_init_advertising_sets_ucfg(void);
+tBleStatus GAP_init_advertising_sets_ucfg_weak(void);
+tBleStatus GAP_init_advertising_sets(void);
 
 tBleStatus GAP_suspend_resume_active_advertising_sets_ucfg(uint8_t resume);
 tBleStatus GAP_suspend_resume_active_advertising_sets_ucfg_weak(uint8_t resume);
@@ -300,6 +303,67 @@ tBleStatus hci_acl_data_ind_event_int_cb_ucfg_weak(void* header_p,
                                                    uint8_t* buff_p);
 tBleStatus hci_acl_data_ind_event_int_cb(void* header_p,
                                          uint8_t* buff_p);
+
+uint8_t log_verbosity_set_ucfg(void* p);
+uint8_t log_verbosity_set_ucfg_weak(void* p);
+uint8_t log_verbosity_set(void* p);
+
+void log_verbosity_get_ucfg(void* verb_p);
+void log_verbosity_get_ucfg_weak(void* verb_p);
+void log_verbosity_get(void* verb_p);
+
+void log_init_ucfg(void);
+void log_init_ucfg_weak(void);
+void log_init(void);
+
+void log_notify_stu_ucfg(uint8_t lvl,
+                         uint8_t cid,
+                         uint16_t mid,
+                         uint8_t uid,
+                         uint8_t fmt,
+                         uint8_t len,
+                         uint8_t* buf_p);
+void log_notify_stu_ucfg_weak(uint8_t lvl,
+                              uint8_t cid,
+                              uint16_t mid,
+                              uint8_t uid,
+                              uint8_t fmt,
+                              uint8_t len,
+                              uint8_t* buf_p);
+void log_notify_stu(uint8_t lvl,
+                    uint8_t cid,
+                    uint16_t mid,
+                    uint8_t uid,
+                    uint8_t fmt,
+                    uint8_t len,
+                    uint8_t* buf_p);
+
+void log_notify_us_deferred_ucfg(uint8_t lvl,
+                                 uint8_t cid,
+                                 uint16_t mid,
+                                 uint8_t uid,
+                                 uint8_t add_info_present,
+                                 uint32_t add_info);
+void log_notify_us_deferred_ucfg_weak(uint8_t lvl,
+                                      uint8_t cid,
+                                      uint16_t mid,
+                                      uint8_t uid,
+                                      uint8_t add_info_present,
+                                      uint32_t add_info);
+void log_notify_us_deferred(uint8_t lvl,
+                            uint8_t cid,
+                            uint16_t mid,
+                            uint8_t uid,
+                            uint8_t add_info_present,
+                            uint32_t add_info);
+
+void log_notify_us_flush_ucfg(void);
+void log_notify_us_flush_ucfg_weak(void);
+void log_notify_us_flush(void);
+
+uint32_t log_csr_ucfg(void);
+uint32_t log_csr_ucfg_weak(void);
+uint32_t log_csr(void);
 
 uint32_t chc_csr_ucfg(void);
 uint32_t chc_csr_ucfg_weak(void);
@@ -455,6 +519,10 @@ tBleStatus MBM_init_ucfg(void);
 tBleStatus MBM_init_ucfg_weak(void);
 tBleStatus MBM_init(void);
 
+tBleStatus smp_debug_trudy__set_config_ucfg(uint32_t config);
+tBleStatus smp_debug_trudy__set_config_ucfg_weak(uint32_t config);
+tBleStatus smp_debug_trudy__set_config(uint32_t config);
+
 uint32_t secure_connections_csr_ucfg(void);
 uint32_t secure_connections_csr_ucfg_weak(void);
 uint32_t secure_connections_csr(void);
@@ -546,9 +614,9 @@ tBleStatus llc_conn_multi_link_connection_ucfg(uint8_t enable);
 tBleStatus llc_conn_multi_link_connection_ucfg_weak(uint8_t enable);
 tBleStatus llc_conn_multi_link_connection(uint8_t enable);
 
-void llc_conn_peripheral_latency_cancellation_tsk_ucfg(uint16_t task_idx);
-void llc_conn_peripheral_latency_cancellation_tsk_ucfg_weak(uint16_t task_idx);
-void llc_conn_peripheral_latency_cancellation_tsk(uint16_t task_idx);
+void llc_conn_peripheral_roll_back_params_tsk_ucfg(uint16_t task_idx);
+void llc_conn_peripheral_roll_back_params_tsk_ucfg_weak(uint16_t task_idx);
+void llc_conn_peripheral_roll_back_params_tsk(uint16_t task_idx);
 
 uint8_t llc_check_sreq_or_creq_tx_addr_ucfg(void* tx_addr7_p,
                                             uint8_t pdu_type,
@@ -952,11 +1020,11 @@ uint8_t llc_padv_check_if_syncinfo_is_included_and_start_periodic_advertising_uc
 uint8_t llc_padv_check_if_syncinfo_is_included_and_start_periodic_advertising(void* context_p);
 
 uint8_t llc_padv_update_sync_info_ucfg(void* padv_per_p,
-                                    uint32_t aux_adv_ind_anchor);
+                                       uint32_t aux_adv_ind_anchor);
 uint8_t llc_padv_update_sync_info_ucfg_weak(void* padv_per_p,
-                                         uint32_t aux_adv_ind_anchor);
+                                            uint32_t aux_adv_ind_anchor);
 uint8_t llc_padv_update_sync_info(void* padv_per_p,
-                               uint32_t aux_adv_ind_anchor);
+                                  uint32_t aux_adv_ind_anchor);
 
 void llc_padv_prepare_periodic_advertising_payload_ucfg(void* padv_per_p,
                                                         uint8_t extended_header_flags,
@@ -973,11 +1041,11 @@ uint32_t llc_padv_periodic_adv_sync_csr_ucfg_weak(void);
 uint32_t llc_padv_periodic_adv_sync_csr(void);
 
 uint8_t llc_padv_wr_create_connection_cancel_ucfg(void* _padv_per_p,
-                                               uint8_t advertising_handle);
+                                                  uint8_t advertising_handle);
 uint8_t llc_padv_wr_create_connection_cancel_ucfg_weak(void* _padv_per_p,
-                                                    uint8_t advertising_handle);
+                                                       uint8_t advertising_handle);
 uint8_t llc_padv_wr_create_connection_cancel(void* _padv_per_p,
-                                          uint8_t advertising_handle);
+                                             uint8_t advertising_handle);
 
 void llc_padv_wr_set_start_parameters_ucfg(void* set_padv_wr_start_parameters_p);
 void llc_padv_wr_set_start_parameters_ucfg_weak(void* set_padv_wr_start_parameters_p);
@@ -988,11 +1056,11 @@ tBleStatus llc_padv_wr_set_periodic_advertising_subevent_data_ucfg_weak(void* se
 tBleStatus llc_padv_wr_set_periodic_advertising_subevent_data(void* set_padv_wr_data_p);
 
 uint8_t llc_padv_wr_set_ctrdata_ucfg(void* padv_per_p,
-                                  uint8_t* ctrdata_p);
+                                     uint8_t* ctrdata_p);
 uint8_t llc_padv_wr_set_ctrdata_ucfg_weak(void* padv_per_p,
-                                       uint8_t* ctrdata_p);
+                                          uint8_t* ctrdata_p);
 uint8_t llc_padv_wr_set_ctrdata(void* padv_per_p,
-                             uint8_t* ctrdata_p);
+                                uint8_t* ctrdata_p);
 
 void llc_padv_wr_set_acad_ucfg(void* padv_per_p,
                                uint8_t* ext_hdr_p);
@@ -1012,6 +1080,46 @@ uint32_t llc_padv_periodic_adv_sync_wr_csr(void);
 void llc_padv_wr_disable_ext_ucfg(void* _padv_per_p);
 void llc_padv_wr_disable_ext_ucfg_weak(void* _padv_per_p);
 void llc_padv_wr_disable_ext(void* _padv_per_p);
+
+void llc_past_mem_allocate_ucfg(uint8_t scan_en,
+                                uint8_t ext_en,
+                                uint8_t pscan_en,
+                                uint8_t conn_en);
+void llc_past_mem_allocate_ucfg_weak(uint8_t scan_en,
+                                     uint8_t ext_en,
+                                     uint8_t pscan_en,
+                                     uint8_t conn_en);
+void llc_past_mem_allocate(uint8_t scan_en,
+                           uint8_t ext_en,
+                           uint8_t pscan_en,
+                           uint8_t conn_en);
+
+void llc_past_init_ucfg(uint8_t conn_idx);
+void llc_past_init_ucfg_weak(uint8_t conn_idx);
+void llc_past_init(uint8_t conn_idx);
+
+void llc_past_by_scanner_ucfg(void* params,
+                              uint32_t conn_anchor,
+                              uint32_t conn_interval,
+                              uint16_t conn_event_count,
+                              uint8_t* pdu_p);
+void llc_past_by_scanner_ucfg_weak(void* params,
+                                   uint32_t conn_anchor,
+                                   uint32_t conn_interval,
+                                   uint16_t conn_event_count,
+                                   uint8_t* pdu_p);
+void llc_past_by_scanner(void* params,
+                         uint32_t conn_anchor,
+                         uint32_t conn_interval,
+                         uint16_t conn_event_count,
+                         uint8_t* pdu_p);
+
+void llc_past_peer_init_ucfg(uint8_t* pdu_p,
+                             uint8_t conn_idx);
+void llc_past_peer_init_ucfg_weak(uint8_t* pdu_p,
+                                  uint8_t conn_idx);
+void llc_past_peer_init(uint8_t* pdu_p,
+                        uint8_t conn_idx);
 
 void llc_priv_generate_peer_rpa_from_peer_id_ucfg(void* peer_p,
                                                   uint8_t in_isr);
@@ -1061,6 +1169,14 @@ void llc_priv_stop_privacy_timer(void);
 void llc_priv_init_random_part_of_one_local_rpa_ucfg(void* peer_id_p);
 void llc_priv_init_random_part_of_one_local_rpa_ucfg_weak(void* peer_id_p);
 void llc_priv_init_random_part_of_one_local_rpa(void* peer_id_p);
+
+void llc_priv_enable_rpa_change_at_timeout_ucfg(uint8_t enable);
+void llc_priv_enable_rpa_change_at_timeout_ucfg_weak(uint8_t enable);
+void llc_priv_enable_rpa_change_at_timeout(uint8_t enable);
+
+uint8_t llc_priv_is_rpa_change_at_timeout_enabled_ucfg(void);
+uint8_t llc_priv_is_rpa_change_at_timeout_enabled_ucfg_weak(void);
+uint8_t llc_priv_is_rpa_change_at_timeout_enabled(void);
 
 void llc_pscan_cancel_slot_cte_ucfg(void* cntxt_per_p);
 void llc_pscan_cancel_slot_cte_ucfg_weak(void* cntxt_per_p);
@@ -1112,9 +1228,12 @@ void llc_pscan_synchronizing_ucfg(void* params_p);
 void llc_pscan_synchronizing_ucfg_weak(void* params_p);
 void llc_pscan_synchronizing(void* params_p);
 
-void llc_pscan_wrong_cte_type_ucfg(void* cntxt_p);
-void llc_pscan_wrong_cte_type_ucfg_weak(void* cntxt_p);
-void llc_pscan_wrong_cte_type(void* cntxt_p);
+void llc_pscan_wrong_cte_type_ucfg(void* cntxt_p,
+                                   uint8_t pawr_feat);
+void llc_pscan_wrong_cte_type_ucfg_weak(void* cntxt_p,
+                                        uint8_t pawr_feat);
+void llc_pscan_wrong_cte_type(void* cntxt_p,
+                              uint8_t pawr_feat);
 
 void llc_pscan_wr_init_ucfg(void);
 void llc_pscan_wr_init_ucfg_weak(void);
@@ -1148,14 +1267,14 @@ void llc_pscan_wr_config_tx_blue_sm(void* params_p,
                                     uint8_t pawr_feat);
 
 uint8_t llc_pscan_wr_get_pawr_info_ucfg(uint8_t acad_size,
-                                     uint8_t* acad_p,
-                                     uint8_t* pawr_info_p);
+                                        uint8_t* acad_p,
+                                        uint8_t* pawr_info_p);
 uint8_t llc_pscan_wr_get_pawr_info_ucfg_weak(uint8_t acad_size,
-                                          uint8_t* acad_p,
-                                          uint8_t* pawr_info_p);
+                                             uint8_t* acad_p,
+                                             uint8_t* pawr_info_p);
 uint8_t llc_pscan_wr_get_pawr_info(uint8_t acad_size,
-                                uint8_t* acad_p,
-                                uint8_t* pawr_info_p);
+                                   uint8_t* acad_p,
+                                   uint8_t* pawr_info_p);
 
 uint8_t llc_pscan_wr_check_pawr_active_ucfg(uint8_t conn_idx);
 uint8_t llc_pscan_wr_check_pawr_active_ucfg_weak(uint8_t conn_idx);
@@ -1190,24 +1309,32 @@ void llc_scan_conn_ind_sent_ucfg_weak(void* ptr,
 void llc_scan_conn_ind_sent(void* ptr,
                             uint8_t idx);
 
+uint8_t llc_scan_isr_uncoded_ucfg(void* cntxt_p);
+uint8_t llc_scan_isr_uncoded_ucfg_weak(void* cntxt_p);
+uint8_t llc_scan_isr_uncoded(void* cntxt_p);
+
+uint8_t llc_scan_isr_coded_ucfg(void* cntxt_p);
+uint8_t llc_scan_isr_coded_ucfg_weak(void* cntxt_p);
+uint8_t llc_scan_isr_coded(void* cntxt_p);
+
 uint8_t llc_scan_process_ext_adv_ucfg(void* scan_p,
-                                   void* params_p,
-                                   uint32_t direct_addr[2],
-                                   uint8_t idx,
-                                   uint8_t advertiser_addr_flag,
-                                   uint8_t* send_report_p);
+                                      void* params_p,
+                                      uint32_t direct_addr[2],
+                                      uint8_t idx,
+                                      uint8_t advertiser_addr_flag,
+                                      uint8_t* send_report_p);
 uint8_t llc_scan_process_ext_adv_ucfg_weak(void* scan_p,
-                                        void* params_p,
-                                        uint32_t direct_addr[2],
-                                        uint8_t idx,
-                                        uint8_t advertiser_addr_flag,
-                                        uint8_t* send_report_p);
+                                           void* params_p,
+                                           uint32_t direct_addr[2],
+                                           uint8_t idx,
+                                           uint8_t advertiser_addr_flag,
+                                           uint8_t* send_report_p);
 uint8_t llc_scan_process_ext_adv(void* scan_p,
-                              void* params_p,
-                              uint32_t direct_addr[2],
-                              uint8_t idx,
-                              uint8_t advertiser_addr_flag,
-                              uint8_t* send_report_p);
+                                 void* params_p,
+                                 uint32_t direct_addr[2],
+                                 uint8_t idx,
+                                 uint8_t advertiser_addr_flag,
+                                 uint8_t* send_report_p);
 
 void llc_scan_aux_conn_rsp_rcvd_ucfg(void* scan_p,
                                      void* aux_p,
@@ -1274,6 +1401,10 @@ void llc_scan_set_conn_params(Extended_Create_Connection_Parameters_t ext_create
 void llc_scan_disable_ucfg(void* scan_p);
 void llc_scan_disable_ucfg_weak(void* scan_p);
 void llc_scan_disable(void* scan_p);
+
+uint8_t llc_scan_stop_ucfg(uint8_t scan_disable);
+uint8_t llc_scan_stop_ucfg_weak(uint8_t scan_disable);
+uint8_t llc_scan_stop(uint8_t scan_disable);
 
 uint8_t llc_subrate_get_active_sr_req_proc_ucfg(uint8_t conn_idx);
 uint8_t llc_subrate_get_active_sr_req_proc_ucfg_weak(uint8_t conn_idx);
@@ -1439,56 +1570,6 @@ void LLC_authenticated_payload_timeout_processing_ucfg(uint16_t task_idx);
 void LLC_authenticated_payload_timeout_processing_ucfg_weak(uint16_t task_idx);
 void LLC_authenticated_payload_timeout_processing(uint16_t task_idx);
 
-void llc_past_mem_allocate_ucfg(uint8_t scan_en,
-                                uint8_t ext_en,
-                                uint8_t pscan_en,
-                                uint8_t conn_en);
-void llc_past_mem_allocate_ucfg_weak(uint8_t scan_en,
-                                     uint8_t ext_en,
-                                     uint8_t pscan_en,
-                                     uint8_t conn_en);
-void llc_past_mem_allocate(uint8_t scan_en,
-                           uint8_t ext_en,
-                           uint8_t pscan_en,
-                           uint8_t conn_en);
-
-void LL_past_load_txctrl_packet_from_scanner_ucfg(void* params,
-                                                  uint8_t* pdu_p,
-                                                  uint32_t instant_anchor,
-                                                  uint32_t connect_interval,
-                                                  uint16_t connect_event_count,
-                                                  uint16_t connect_event_cnt);
-void LL_past_load_txctrl_packet_from_scanner_ucfg_weak(void* params,
-                                                       uint8_t* pdu_p,
-                                                       uint32_t instant_anchor,
-                                                       uint32_t connect_interval,
-                                                       uint16_t connect_event_count,
-                                                       uint16_t connect_event_cnt);
-void LL_past_load_txctrl_packet_from_scanner(void* params,
-                                             uint8_t* pdu_p,
-                                             uint32_t instant_anchor,
-                                             uint32_t connect_interval,
-                                             uint16_t connect_event_count,
-                                             uint16_t connect_event_cnt);
-
-void LL_periodicscan_deploy_scanner_from_past_ucfg(void* params,
-                                                   uint8_t conn_idx,
-                                                   uint8_t pawr_feat);
-void LL_periodicscan_deploy_scanner_from_past_ucfg_weak(void* params,
-                                                        uint8_t conn_idx,
-                                                        uint8_t pawr_feat);
-void LL_periodicscan_deploy_scanner_from_past(void* params,
-                                              uint8_t conn_idx,
-                                              uint8_t pawr_feat);
-
-void LL_past_initialize_connect_context_ucfg(uint8_t conn_idx);
-void LL_past_initialize_connect_context_ucfg_weak(uint8_t conn_idx);
-void LL_past_initialize_connect_context(uint8_t conn_idx);
-
-void LL_past_default_params_ucfg(uint8_t conn_idx);
-void LL_past_default_params_ucfg_weak(uint8_t conn_idx);
-void LL_past_default_params(uint8_t conn_idx);
-
 void llc_conn_init_pcl_ctxt_ucfg(uint8_t conn_idx);
 void llc_conn_init_pcl_ctxt_ucfg_weak(uint8_t conn_idx);
 void llc_conn_init_pcl_ctxt(uint8_t conn_idx);
@@ -1585,14 +1666,14 @@ void LLC_connless_process_rx_cte(uint8_t iq_samples_ready,
                                  uint8_t channel);
 
 uint8_t LLC_check_iq_samples_ready_ucfg(uint8_t* iq_samples_number,
-                                     uint8_t* channel,
-                                     uint8_t taskslot_no);
+                                        uint8_t* channel,
+                                        uint8_t taskslot_no);
 uint8_t LLC_check_iq_samples_ready_ucfg_weak(uint8_t* iq_samples_number,
-                                          uint8_t* channel,
-                                          uint8_t taskslot_no);
+                                             uint8_t* channel,
+                                             uint8_t taskslot_no);
 uint8_t LLC_check_iq_samples_ready(uint8_t* iq_samples_number,
-                                uint8_t* channel,
-                                uint8_t taskslot_no);
+                                   uint8_t* channel,
+                                   uint8_t taskslot_no);
 
 void llc_cte_init_ucfg(void);
 void llc_cte_init_ucfg_weak(void);
@@ -1680,11 +1761,11 @@ tBleStatus LL_Remove_Advertising_Set_ucfg_weak(uint16_t Advertising_Handle);
 tBleStatus LL_Remove_Advertising_Set(uint16_t Advertising_Handle);
 
 uint8_t Data_Len_Update_Offline_Processing_ucfg(void* params,
-                                             uint32_t ctrl_flds);
+                                                uint32_t ctrl_flds);
 uint8_t Data_Len_Update_Offline_Processing_ucfg_weak(void* params,
-                                                  uint32_t ctrl_flds);
+                                                     uint32_t ctrl_flds);
 uint8_t Data_Len_Update_Offline_Processing(void* params,
-                                        uint32_t ctrl_flds);
+                                           uint32_t ctrl_flds);
 
 tBleStatus ll_write_supported_data_ucfg(uint16_t Supported_Max_Tx_Octets,
                                         uint16_t Supported_Max_Tx_Time,
@@ -1732,10 +1813,6 @@ void LL_init(uint8_t dataLenExt,
              uint8_t Pcl,
              uint8_t Cns,
              uint8_t Chc);
-
-tBleStatus smp_debug_trudy__set_config_ucfg(uint32_t config);
-tBleStatus smp_debug_trudy__set_config_ucfg_weak(uint32_t config);
-tBleStatus smp_debug_trudy__set_config(uint32_t config);
 
 tBleStatus smp_start_encryption_ucfg(void* params);
 tBleStatus smp_start_encryption_ucfg_weak(void* params);
@@ -2131,6 +2208,8 @@ tBleStatus aci_gatt_clt_execute_write_req_api(uint16_t Connection_Handle,
 tBleStatus aci_gatt_clt_confirm_indication_api(uint16_t Connection_Handle,
                                                uint16_t CID);
 
+tBleStatus aci_gatt_clt_add_subscription_security_level_api(ble_gatt_clt_sec_level_st* sec_level_p);
+
 tBleStatus aci_hal_peripheral_latency_enable_api(uint16_t Connection_Handle,
                                                  uint8_t Enable);
 
@@ -2462,25 +2541,6 @@ tBleStatus hci_le_remove_advertising_set_api(uint8_t Advertising_Handle);
 
 tBleStatus hci_le_clear_advertising_sets_api(void);
 
-tBleStatus hci_le_set_default_periodic_advertising_sync_transfer_parameters_api(uint8_t Mode,
-                                                                                uint16_t Skip,
-                                                                                uint16_t Sync_Timeout,
-                                                                                uint8_t CTE_Type);
-
-tBleStatus hci_le_set_periodic_advertising_sync_transfer_parameters_api(uint16_t Connection_Handle,
-                                                                        uint8_t Mode,
-                                                                        uint16_t Skip,
-                                                                        uint16_t Sync_Timeout,
-                                                                        uint8_t CTE_Type);
-
-tBleStatus hci_le_periodic_advertising_set_info_transfer_api(uint16_t Connection_Handle,
-                                                             uint16_t Service_Data,
-                                                             uint8_t Advertising_Handle);
-
-tBleStatus hci_le_periodic_advertising_sync_transfer_api(uint16_t Connection_Handle,
-                                                         uint16_t Service_Data,
-                                                         uint16_t Sync_Handle);
-
 tBleStatus hci_le_iso_transmit_test_api(uint16_t Connection_Handle,
                                         uint8_t Payload_Type);
 
@@ -2560,6 +2620,25 @@ tBleStatus hci_le_set_periodic_advertising_parameters_v2_api(uint8_t Advertising
                                                              uint8_t Response_Slot_Delay,
                                                              uint8_t Response_Slot_Spacing,
                                                              uint8_t Num_Response_Slots);
+
+tBleStatus hci_le_periodic_advertising_set_info_transfer_api(uint16_t Connection_Handle,
+                                                             uint16_t Service_Data,
+                                                             uint8_t Advertising_Handle);
+
+tBleStatus hci_le_periodic_advertising_sync_transfer_api(uint16_t Connection_Handle,
+                                                         uint16_t Service_Data,
+                                                         uint16_t Sync_Handle);
+
+tBleStatus hci_le_set_default_periodic_advertising_sync_transfer_parameters_api(uint8_t Mode,
+                                                                                uint16_t Skip,
+                                                                                uint16_t Sync_Timeout,
+                                                                                uint8_t CTE_Type);
+
+tBleStatus hci_le_set_periodic_advertising_sync_transfer_parameters_api(uint16_t Connection_Handle,
+                                                                        uint8_t Mode,
+                                                                        uint16_t Skip,
+                                                                        uint16_t Sync_Timeout,
+                                                                        uint8_t CTE_Type);
 
 tBleStatus hci_le_enhanced_read_transmit_power_level_api(uint16_t Connection_Handle,
                                                          uint8_t PHY,

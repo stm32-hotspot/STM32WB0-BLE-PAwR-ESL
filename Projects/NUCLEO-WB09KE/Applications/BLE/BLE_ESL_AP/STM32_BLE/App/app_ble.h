@@ -30,7 +30,7 @@ extern "C" {
 #include "ble_events.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "esl_profile_ap.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -71,6 +71,13 @@ typedef enum
 
 /* USER CODE BEGIN ET */
 
+typedef enum
+{
+  ESL_AP_CONFIGURING_ESL,
+  ESL_AP_UPDATING_ESL_ADDRESS,
+  
+} ESL_AP_status_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -108,6 +115,10 @@ void VTimer_Process_Schedule(void);
 void NVM_Process(void);
 void NVM_Process_Schedule(void);
 void BLEEVT_App_Notification(const hci_pckt *hci_pckt);
+
+void create_periodic_advertising_connection(uint8_t subevent, uint8_t Peer_Address[6], uint8_t Peer_Address_Type);
+void set_AP_Status(ESL_AP_status_t status);
+ESL_AP_status_t get_AP_Status(void);
 /* USER CODE END EF */
 
 #ifdef __cplusplus

@@ -51,7 +51,7 @@
  * Define Advertising parameters
  */
 #define CFG_PUBLIC_BD_ADDRESS               (0x0280E1AAABAD)
-#define CFG_BD_ADDRESS_TYPE                 HCI_ADDR_STATIC_RANDOM_ADDR
+#define CFG_BD_ADDRESS_TYPE                 HCI_ADDR_PUBLIC //HCI_ADDR_STATIC_RANDOM_ADDR
 #define CFG_BLE_PRIVACY_ENABLED             (0)
 
 /**
@@ -75,7 +75,7 @@
 /**
  * Define Secure Connections Support
  */
-#define CFG_SC_SUPPORT                      GAP_SC_NOT_SUPPORTED
+#define CFG_SC_SUPPORT                      GAP_SC_MANDATORY
 
 /**
  * Define Keypress Notification Support
@@ -90,8 +90,8 @@
 /* USER CODE BEGIN Generic_Parameters */
 
 #define PAWR_NUM_SUBEVENTS              4
-#define PAWR_SUBEVENT_INTERVAL_MS       30
-#define PAWR_RESPONSE_SLOT_DELAY_MS     2.5
+#define PAWR_SUBEVENT_INTERVAL_MS       100
+#define PAWR_RESPONSE_SLOT_DELAY_MS     50
 #define PAWR_RESPONSE_SLOT_SPACING_US   500
 #define PAWR_NUM_RESPONSE_SLOTS         8
 
@@ -123,7 +123,8 @@
 #define CFG_BLE_NUM_RADIO_TASKS                         (CFG_NUM_RADIO_TASKS)
 
 /**
- * Maximum number of Attributes that can be stored in the GATT database.
+ * Maximum number of attributes that can be stored in the GATT database in addition to the attributes number already defined for the GATT and GAP services
+ * (BLE_STACK_NUM_GATT_MANDATORY_ATTRIBUTES value on STM32_BLE middleware, ble_stack.h header file).
  */
 #define CFG_BLE_NUM_GATT_ATTRIBUTES                     (0)
 
@@ -193,7 +194,7 @@
 /**
  * Maximum number of subevent data that can be queued in the controller.
  */    
-#define CFG_BLE_PAWR_SUBEVENT_DATA_COUNT_MAX            (2U)
+#define CFG_BLE_PAWR_SUBEVENT_DATA_COUNT_MAX            (8U)
 
 /**
  * Maximum number of slots for scanning on the secondary advertising channel,
@@ -272,6 +273,16 @@
 #define CFG_BLE_USER_FIFO_SIZE                          (1024)
 
 /**
+ * If 1, Peripheral Preferred Connection Parameters Characteristic is added in GAP service.
+ */
+#define CFG_BLE_GAP_PERIPH_PREF_CONN_PARAM_CHARACTERISTIC  (0)
+
+/**
+ * If 1, Encrypted Key Material Characteristic is added in GAP service.
+ */
+#define CFG_BLE_GAP_ENCRYPTED_KEY_MATERIAL_CHARACTERISTIC  (0)
+
+/**
  * Number of allocated memory blocks used for packet allocation.
  * The use of BLE_STACK_MBLOCKS_CALC macro is suggested to calculate the minimum
  * number of memory blocks for a given number of supported links and ATT MTU.
@@ -316,7 +327,7 @@
  ******************************************************************************/
 #define CFG_BLE_CONTROLLER_SCAN_ENABLED                   (1U)
 #define CFG_BLE_CONTROLLER_PRIVACY_ENABLED                (0U)
-#define CFG_BLE_SECURE_CONNECTIONS_ENABLED                (0U)
+#define CFG_BLE_SECURE_CONNECTIONS_ENABLED                (1U)
 #define CFG_BLE_CONTROLLER_DATA_LENGTH_EXTENSION_ENABLED  (0U)
 #define CFG_BLE_CONTROLLER_2M_CODED_PHY_ENABLED           (0U)
 #define CFG_BLE_CONTROLLER_EXT_ADV_SCAN_ENABLED           (1U)
@@ -343,11 +354,16 @@
  *  low power mode. It means that all what can have an impact on the consumptions
  *  are powered down.(For instance LED, Access to Debugger, Etc.)
  *
+ *  When CFG_LPM_SUPPORTED and CFG_FULL_LOW_EMULATED are both set to 1, the system is configured to
+ *  emulate the Deepstop mode without losing the debugger connection and breakpoints nor watchpoints.
+ *
  ******************************************************************************/
 
 #define CFG_FULL_LOW_POWER       (0)
 
 #define CFG_LPM_SUPPORTED        (0)
+
+#define CFG_LPM_EMULATED         (0)
 
 /**
  * Low Power configuration
@@ -444,9 +460,12 @@ typedef enum
   TASK_BUTTON_2,
   TASK_BUTTON_3,
   CFG_TASK_CONN_DEV_ID,
-  CFG_TASK_P2PC_WRITE_CHAR_ID,
+  CFG_TASK_ESL_AP_WRITE_CHARS_ID,
+  CFG_TASK_START_AUTO_CONNECTION,
   CFG_TASK_START_INFO_TRANSFER,
-  CFG_TASK_UART_CMD_PROCESS,
+  CFG_TASK_CONN_SETUP,
+  CFG_TASK_UART_CMD_PROCESS,  
+  CFG_TASK_UPDATING_STATE_TRANSITION,
   /* USER CODE END CFG_Task_Id_t */
   CFG_TASK_NBR,  /**< Shall be LAST in the list */
 } CFG_Task_Id_t;

@@ -159,9 +159,10 @@ void USART1_IRQHandler(void)
     /* Send the data received to the user RX callback */
     UartRxCpltCallback(&read_data, 1);
   }
+  USART1->ICR = USART_ICR_ORECF | USART_ICR_NECF | USART_ICR_PECF | USART_ICR_FECF;
   /* USER CODE END USART1_IRQn 0 */
   /* USER CODE BEGIN USART1_IRQn 1 */
-
+  
   /* USER CODE END USART1_IRQn 1 */
 }
 
@@ -239,5 +240,11 @@ void RADIO_TXRX_SEQ_IRQHandler(void)
 void GPIOA_IRQHandler(void)
 {
   BSP_PB_IRQHandler(B1_GPIO_PORT, B1_PIN);
+}
+
+void GPIOB_IRQHandler(void)
+{
+  BSP_PB_IRQHandler(B2_GPIO_PORT, B2_PIN);
+  BSP_PB_IRQHandler(B3_GPIO_PORT, B3_PIN);
 }
 /* USER CODE END 1 */
