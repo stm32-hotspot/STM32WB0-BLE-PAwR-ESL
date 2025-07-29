@@ -24,8 +24,10 @@
 #include "app_debug.h"
 #include "app_common.h"
 #include "gatt_client_app.h"
-
 #include "time_ref.h"
+#include "otp_client.h"
+#include "stm32_seq.h"
+#include "app_ble.h"
 
 #define C_SIZE_CMD_STRING       256U
 
@@ -33,6 +35,8 @@ static uint8_t CommandString[C_SIZE_CMD_STRING];
 static volatile uint16_t indexReceiveChar = 0;
 static uint8_t echo_mode = 0;
 static volatile uint8_t buff_lock = 0;
+
+static int objectFoundCB(const char * name, uint16_t name_length);
 
 void UartRxCpltCallback(uint8_t * pRxDataBuff, uint16_t nDataSize)
 {
@@ -226,8 +230,7 @@ static void img_resp_cb(uint8_t group_id, uint8_t esl_id, uint8_t *resp)
 static void unassociated_resp_cb(uint8_t group_id, uint8_t esl_id, uint8_t *resp)
 {
   uint8_t status = 0;
-  uint16_t basic_state = 0;  
-  esl_bonded_t* esl_node;
+  uint16_t basic_state = 0;
   
   print_esl_resp(group_id, esl_id, resp);
   
@@ -236,11 +239,7 @@ static void unassociated_resp_cb(uint8_t group_id, uint8_t esl_id, uint8_t *resp
     basic_state = LE_TO_HOST_16(&resp[1]); 
     /* The ESL removed all bonding information with the AP, so the AP have to 
        remove this ESL from esl_bonded_list*/
-    esl_node = ESL_AP_return_ESL_bonded(group_id, esl_id);
-    if (esl_node!= NULL)
-    {
-      ESL_AP_Remove_ESL_from_List(esl_node);
-    }  
+    ESL_AP_DeleteESLInfo(GET_ESL_ADDRESS(group_id, esl_id));
   }
   else
   {
@@ -269,17 +268,11 @@ static void server_reset_resp_cb(uint8_t group_id, uint8_t esl_id, uint8_t *resp
   printf("+STATE:%02X,%02X,%d,%d\r\n", group_id, esl_id, status, basic_state);
 }
 
-static void factory_reset_remove_ESL(uint8_t group_id, uint8_t esl_id)
+static int objectFoundCB(const char * name, uint16_t name_length)
 {
-  esl_bonded_t* esl_node;
-
-  /* The ESL removed all bonding information with the AP, so the AP have to 
-     remove this ESL from esl_bonded_list*/
-  esl_node = ESL_AP_return_ESL_bonded(group_id, esl_id);
-  if (esl_node!= NULL)
-  {
-    ESL_AP_Remove_ESL_from_List(esl_node);
-  }  
+  printf("+OTP: %.*s\n", name_length, name);
+  
+  return 0;
 }
 
 static int parse_cmd(void)
@@ -312,7 +305,7 @@ static int parse_cmd(void)
     }
     else
     {  
-      if(ESL_AP_command(ESL_CMD_PING, group_id, esl_id, ping_resp_cb) == 0)
+      if(ESL_AP_Command(ESL_CMD_PING, group_id, esl_id, ping_resp_cb) == 0)
       {
         return 0;
       }
@@ -331,7 +324,7 @@ static int parse_cmd(void)
     }
     else
     {
-      if(ESL_AP_command(ESL_CMD_UNASSOCIATE_FROM_AP, group_id, esl_id, unassociated_resp_cb) == 0)
+      if(ESL_AP_Command(ESL_CMD_UNASSOCIATE_FROM_AP, group_id, esl_id, unassociated_resp_cb) == 0)
       {
         return 0;
       }
@@ -350,7 +343,7 @@ static int parse_cmd(void)
     }
     else
     {
-      if(ESL_AP_command(ESL_CMD_SERVICE_RESET, group_id, esl_id, server_reset_resp_cb) == 0)
+      if(ESL_AP_Command(ESL_CMD_SERVICE_RESET, group_id, esl_id, server_reset_resp_cb) == 0)
       {
         return 0;
       }
@@ -360,43 +353,26 @@ static int parse_cmd(void)
       }
     }
   }    
-  else if(strncasecmp((char *)CommandString, "AT+FRST=", 8) == 0)
+  else if(strncasecmp((char *)CommandString, "AT+FRST", 8) == 0)
   {
-    ret = sscanf((char*)CommandString + 8, "%x,%x", &group_id, &esl_id);
-    if(ret != 2 || group_id >= MAX_GROUPS)
+    if(ESL_AP_CmdFactoryReset() == 0)
     {
-      return 1;
+      return 0;
     }
     else
     {
-      if(ESL_AP_cmd_factory_reset(group_id, esl_id, NULL) == 0)
-      {
-        factory_reset_remove_ESL(group_id, esl_id);
-        return 0;
-      }
-      else
-      {
-        return 1;
-      }
+      return 1;
     }
   }    
-  else if(strncasecmp((char *)CommandString, "AT+UPDCMP=", 10) == 0)
+  else if(strncasecmp((char *)CommandString, "AT+UPDCMP", 10) == 0)
   {    
-    ret = sscanf((char*)CommandString + 10, "%x,%x", &group_id, &esl_id);
-    if(ret != 2 || group_id >= MAX_GROUPS)
+    if(ESL_AP_CmdUpdateComplete() == 0)
     {
-      return 1;
+      return 0;
     }
     else
     {
-      if(ESL_AP_cmd_update_complete(group_id, esl_id) == 0)
-      {
-        return 0;
-      }
-      else
-      {
-        return 1;
-      }
+      return 1;
     }
   }  
   else if (strncasecmp((char *)CommandString, "AT+SENS=", 8) == 0)
@@ -409,7 +385,7 @@ static int parse_cmd(void)
     }
     else
     {
-      if(ESL_AP_cmd_read_sensor_data(group_id, esl_id, batt_resp_cb, 0) == 0)
+      if(ESL_AP_CmdReadSensorData(group_id, esl_id, batt_resp_cb, 0) == 0)
       {
         return 0;
       }
@@ -430,7 +406,7 @@ static int parse_cmd(void)
     }
     else
     {
-      if(ESL_AP_cmd_refresh_display(group_id, esl_id, display_index, img_resp_cb) == 0)
+      if(ESL_AP_CmdRefreshDisplay(group_id, esl_id, display_index, img_resp_cb) == 0)
       {
         return 0;
       }
@@ -451,7 +427,7 @@ static int parse_cmd(void)
     }
     else
     {
-      if(ESL_AP_cmd_display_image(group_id, esl_id, img_resp_cb, display_index, image_index) == 0)
+      if(ESL_AP_CmdDisplayImage(group_id, esl_id, img_resp_cb, display_index, image_index) == 0)
       {
         return 0;
       }
@@ -464,16 +440,16 @@ static int parse_cmd(void)
   else if(strncasecmp((char *)CommandString, "AT+IMGTIM=", 10) == 0)
   {
     uint32_t display_index, image_index;
-    uint32_t delay_ms;
+    uint32_t abs_time;
     
-    ret = sscanf((char*)CommandString + 10, "%x,%x,%u,%u,%u", &group_id, &esl_id, &display_index, &image_index, &delay_ms);
+    ret = sscanf((char*)CommandString + 10, "%x,%x,%u,%u,%u", &group_id, &esl_id, &display_index, &image_index, &abs_time);
     if(ret != 5 || group_id >= MAX_GROUPS)
     {
       return 1;
     }
     else
     {
-      if(ESL_AP_cmd_display_timed_image(group_id, esl_id, img_resp_cb, display_index, image_index, delay_ms) == 0)
+      if(ESL_AP_CmdDisplayTimedImage(group_id, esl_id, img_resp_cb, display_index, image_index, abs_time) == 0)
       {
         return 0;
       }
@@ -487,16 +463,16 @@ static int parse_cmd(void)
   {
     uint32_t led_index, led_component, off_period, on_period;
     uint64_t pattern;
-    uint32_t repeat;
+    uint32_t repeat_type, repeat_duration;
     
-    ret = sscanf((char*)CommandString + 7, "%x,%x,%x,%x,%llx,%x,%x,%x", &group_id, &esl_id, &led_index, &led_component, &pattern, &off_period, &on_period, &repeat);
-    if(ret != 8 || group_id >= MAX_GROUPS)    
+    ret = sscanf((char*)CommandString + 7, "%x,%x,%u,%x,%llx,%u,%u,%u,%x", &group_id, &esl_id, &led_index, &led_component, &pattern, &off_period, &on_period, &repeat_type, &repeat_duration);
+    if(ret != 9 || group_id >= MAX_GROUPS || repeat_type > 1 || repeat_duration > 0x7FFF)    
     {
       return 1;
     }
     else
     {
-      if(ESL_AP_cmd_led_control(group_id, esl_id, led_resp_cb, led_index, led_component, pattern, off_period, on_period, repeat) == 0)
+      if(ESL_AP_CmdLedControl(group_id, esl_id, led_resp_cb, led_index, led_component, pattern, off_period, on_period, (repeat_duration<<1)|repeat_type) == 0)
       {
         return 0;
       }
@@ -510,16 +486,17 @@ static int parse_cmd(void)
   {    
     uint32_t led_index, led_component, off_period, on_period;
     uint64_t pattern;
-    uint32_t repeat, delay_ms;
+    uint32_t repeat_type, repeat_duration;
+    uint32_t abs_time;
     
-    ret = sscanf((char*)CommandString + 10, "%x,%x,%x,%x,%llx,%x,%x,%x,%u", &group_id, &esl_id, &led_index, &led_component, &pattern, &off_period, &on_period, &repeat, &delay_ms);
-    if(ret != 9 || group_id >= MAX_GROUPS)    
+    ret = sscanf((char*)CommandString + 10, "%x,%x,%u,%x,%llx,%u,%u,%u,%x,%u", &group_id, &esl_id, &led_index, &led_component, &pattern, &off_period, &on_period, &repeat_type, &repeat_duration, &abs_time);
+    if(ret != 10 || group_id >= MAX_GROUPS || repeat_type > 1 || repeat_duration > 0x7FFF)    
     {
       return 1;
     }
     else
     {
-      if(ESL_AP_cmd_led_timed_control(group_id, esl_id, led_resp_cb, led_index, led_component, pattern, off_period, on_period, repeat, delay_ms) == 0)
+      if(ESL_AP_CmdLedTimedControl(group_id, esl_id, led_resp_cb, led_index, led_component, pattern, off_period, on_period, (repeat_duration<<1)|repeat_type, abs_time) == 0)
       {
         return 0;
       }
@@ -540,7 +517,7 @@ static int parse_cmd(void)
     }
     else
     {
-      if(ESL_AP_cmd_txt(group_id, esl_id, txt_resp_cb, text) == 0)
+      if(ESL_AP_CmdTxt(group_id, esl_id, txt_resp_cb, text) == 0)
       {
         return 0;
       }
@@ -561,7 +538,7 @@ static int parse_cmd(void)
     }
     else
     {
-      if(ESL_AP_cmd_price(group_id, esl_id, price_resp_cb, val_int, val_fract) == 0)
+      if(ESL_AP_CmdPrice(group_id, esl_id, price_resp_cb, val_int, val_fract) == 0)
       {
         return 0;
       }
@@ -576,8 +553,8 @@ static int parse_cmd(void)
   {
     uint32_t new_group_id, new_esl_id;
     
-    ret = sscanf((char*)CommandString + 10, "%x,%x,%x,%x", &group_id, &esl_id, &new_group_id, &new_esl_id);
-    if(ret != 4 || group_id >= MAX_GROUPS)
+    ret = sscanf((char*)CommandString + 10, "%x,%x", &new_group_id, &new_esl_id);
+    if(ret != 2 || group_id >= MAX_GROUPS)
     {
       return 1;
     }
@@ -585,7 +562,7 @@ static int parse_cmd(void)
     {
     /* To transition an ESL from the Synchronized state to the Updating state, 
        the AP shall use the Periodic Advertising Connection procedure */  
-      if(ESL_AP_cmd_reconfig_esl_address(group_id, esl_id, new_group_id, new_esl_id) == 0)
+      if(ESL_AP_SetNewEslAddress(new_group_id, new_esl_id) == 0)
       {
         return 0;
       }
@@ -607,7 +584,7 @@ static int parse_cmd(void)
     {
     /* To transition an ESL from the Synchronized state to the Updating state, 
        the AP shall use the Periodic Advertising Connection procedure */  
-      if(ESL_AP_cmd_updating_state(group_id, esl_id) == 0)
+      if(ESL_AP_StartUpdate(group_id, esl_id) == 0)
       {
         return 0;
       }
@@ -620,7 +597,7 @@ static int parse_cmd(void)
   // Command to read the Display/Image/Sensor/Led Information Characteristics
   else if(strncasecmp((char *)CommandString, "AT+INFO", 7) == 0)
   {
-    if(ESL_APP_Read_All_Info_Chars() == 0)
+    if(GATT_CLIENT_APP_ReadAllInfo() == 0)
     { 
       return 0;
     }
@@ -632,7 +609,7 @@ static int parse_cmd(void)
   // Command to read the Display/Image/Sensor/Led Information Characteristics
   else if(strncasecmp((char *)CommandString, "AT+DISPLAYINFO", 14) == 0)
   {
-    if(ESL_APP_Read_Display_Info_Chars() == 0)
+    if(GATT_CLIENT_APP_ReadDisplayInfo() == 0)
     { 
       return 0;
     }
@@ -644,7 +621,7 @@ static int parse_cmd(void)
   // Command to read the Display/Image/Sensor/Led Information Characteristics
   else if(strncasecmp((char *)CommandString, "AT+SENSORINFO", 13) == 0)
   {
-    if(ESL_APP_Read_Sensor_Info_Chars() == 0)
+    if(GATT_CLIENT_APP_ReadSensorInfo() == 0)
     { 
       return 0;
     }
@@ -656,7 +633,7 @@ static int parse_cmd(void)
   // Command to read the Display/Image/Sensor/Led Information Characteristics
   else if(strncasecmp((char *)CommandString, "AT+LEDINFO", 10) == 0)
   {
-    if(ESL_APP_Read_Led_Info_Chars() == 0)
+    if(GATT_CLIENT_APP_ReadLedInfo() == 0)
     { 
       return 0;
     }
@@ -666,9 +643,9 @@ static int parse_cmd(void)
     }   
   }  
   // Command to send aci_gap_clear_security_db api
-  else if(strncasecmp((char *)CommandString, "AT+CLRSCDB", 10) == 0)
+  else if(strncasecmp((char *)CommandString, "AT+CLRNVM", 10) == 0)
   {
-    if(ESL_APP_Clear_Security_DB() == 0)
+    if(ESL_AP_ClearNVMDB() == 0)
     { 
       return 0;
     }
@@ -687,36 +664,251 @@ static int parse_cmd(void)
     
     return 0;
   } 
-  // Help command: list of all ESL AP commands
-  if(strncasecmp((char *)CommandString, "AT+HELP", 7) == 0)
+// Command for connection to ESL with 
+  else if(strncasecmp((char *)CommandString, "AT+SCAN", 7) == 0)
+  {    
+    Scan_proc();
+    
+    return 0;
+  }  
+  // Command for connection to ESL with 
+  else if(strncasecmp((char *)CommandString, "AT+ADD=", 7) == 0)
+  {    
+    uint32_t addr_type;
+    uint64_t address;
+    
+    ret = sscanf((char*)CommandString + 7, "%d,%llx,%x,%x",&addr_type, &address, &group_id, &esl_id);
+    if(ret != 4 || group_id >= MAX_GROUPS)
+    {
+      return 1;
+    }
+    else
+    {
+      uint8_t peer_address[6];
+      // Extract each address byte and store in the peer_address in little-endian order
+      peer_address[0] = address & 0xFF;
+      peer_address[1] = (address >> 8) & 0xFF;
+      peer_address[2] = (address >> 16) & 0xFF;
+      peer_address[3] = (address >> 24) & 0xFF;
+      peer_address[4] = (address >> 32) & 0xFF;
+      peer_address[5] = (address >> 40) & 0xFF;
+      
+      /* To provision or connect to ESL found with scan procedure*/  
+      if(ESL_AP_CmdProvisioning(addr_type, peer_address, group_id, esl_id) == 0)
+      {
+        return 0;
+      }
+      else
+      {
+        return 1;
+      }
+    }
+  }
+#ifdef PTS_OTP
+  else if(strncasecmp((char *)CommandString, "AT+OTPCONN=", 11) == 0)
   {
-    printf("Standard ESL commands: \n");
+    /* Command only used to test OTP */    
+    uint32_t addr_type;
+    uint64_t address;
+    
+    ret = sscanf((char*)CommandString + 11, "%d,%llx",&addr_type, &address);
+    if(ret != 2)
+    {
+      return 1;
+    }
+    else
+    {
+      uint8_t peer_address[6];
+      // Extract each address byte and store in the peer_address in little-endian order
+      peer_address[0] = address & 0xFF;
+      peer_address[1] = (address >> 8) & 0xFF;
+      peer_address[2] = (address >> 16) & 0xFF;
+      peer_address[3] = (address >> 24) & 0xFF;
+      peer_address[4] = (address >> 32) & 0xFF;
+      peer_address[5] = (address >> 40) & 0xFF;
+      
+      set_bleAppContext_address(addr_type, peer_address);
+      ESL_AP_Context.provisioning = false;
+      ESL_AP_Context.configuring = false;
+      
+      UTIL_SEQ_SetTask(1u << CFG_TASK_CONN_DEV_ID, CFG_SEQ_PRIO_0);
+      
+      return 0;
+    }
+  }
+  else if(strncasecmp((char *)CommandString, "AT+OTPDISCONN", 13) == 0)
+  { 
+    APP_BLE_Procedure_Gap_General(PROC_GAP_GEN_CONN_TERMINATE);
+    
+    return 0;
+  }
+  else if(strncasecmp((char *)CommandString, "AT+OTPFEAT", 10) == 0)
+  { 
+    if(OTP_CLIENT_DiscoverFeatures() == 0)
+    {
+      return 0;
+    }
+    else
+    {
+      return 1;
+    }
+  }
+#endif
+  else if(strncasecmp((char *)CommandString, "AT+OTPSEARCH=", 13) == 0)
+  {
+    char text[61];
+    
+    ret = sscanf((char*)CommandString + 13, "%[^\t\r\n]", text);
+    if(ret != 1)
+    {
+      return 1;
+    }
+    else
+    {
+      if(OTP_CLIENT_SearchForObject(text) == 0)
+      {
+        return 0;
+      }
+      else
+      {
+        return 1;
+      }      
+    }
+  }
+  else if(strncasecmp((char *)CommandString, "AT+OTPSEARCH", 12) == 0)
+  { 
+    if(OTP_CLIENT_DiscoverAllObjects(objectFoundCB) == 0)
+    {
+      return 0;
+    }
+    else
+    {
+      return 1;
+    }
+  }
+  else if(strncasecmp((char *)CommandString, "AT+OTPMETA", 10) == 0)
+  {
+    OTPObjectMeatadata_t metadata;
+      
+    if(OTP_CLIENT_ReadMetadata(&metadata) == 0)
+    {      
+      printf("Name: %s\n", metadata.name);
+      printf("Type: 0x ");
+      for(int i = 0; i < metadata.type_length; i++)
+      {
+        printf("%02X ", metadata.type[i]);
+      }
+      printf("\n");
+      printf("Curr Size: %d\n", metadata.curr_size);
+      printf("Alloc Size: %d\n", metadata.alloc_size);
+      printf("Prop: 0x%08X\n", metadata.properties);
+      printf("ID: 0x");
+      for(int i = OBJECT_ID_SIZE - 1; i >= 0; i--)
+      {
+        printf("%02X ", metadata.id[i]);
+      }
+      printf("\n");
+      
+      return 0;
+    }
+    else
+    {
+      return 1;
+    }
+  }
+  else if(strncasecmp((char *)CommandString, "AT+OTPSTART=", 12) == 0)
+  {
+    uint32_t truncate;
+    
+    ret = sscanf((char*)CommandString + 12, "%u",&truncate);
+    if(ret != 1 || truncate > 1)
+    {
+      return 1;
+    }
+    else
+    {      
+      if(OTP_CLIENT_WriteStart(truncate) == 0)
+      { 
+        return 0;
+      }
+      else
+      {
+        return 1;
+      }
+    }
+  }
+  else if(strncasecmp((char *)CommandString, "AT+OTPWRITE=", 12) == 0)
+  {
+    //For debug
+    extern const unsigned char gImage[5000];
+    int size;    
+    
+    ret = sscanf((char*)CommandString + 12, "%u",&size);
+    
+    if(ret != 1 || size > sizeof(gImage))
+    {
+      return 1;
+    }
+      
+    if(OTP_CLIENT_WriteObj(gImage, size) == 0)
+    { 
+      return 0;
+    }
+    else
+    {
+      return 1;
+    }
+  }
+  else if(strncasecmp((char *)CommandString, "AT+OTPCLOSE", 11) == 0)
+  {      
+    if(OTP_CLIENT_ChannelClose() == 0)
+    { 
+      return 0;
+    }
+    else
+    {
+      return 1;
+    }
+  }
+  
+  // Help command: list of all ESL AP commands
+  else if(strncasecmp((char *)CommandString, "AT+HELP", 7) == 0)
+  {
+    printf("Standard ESL commands (Group and ID to be given as hexadecimal value, other values are decimal unless otherwise specified):\n");
     printf("  - AT+PING=<group_id>,<esl_id>: Ping\n");
-    printf("  - AT+UNASSOC=<group_id>,<esl_id>: Unassociate from AP \n");
-    printf("  - AT+SRVRST=<group_id>,<esl_id>: Service Reset \n");
-    printf("  - AT+FRST=<group_id>,<esl_id>: Factory Reset \n");
-    printf("  - AT+UPDCMP=<group_id>,<esl_id>: Update Complete \n");
-    printf("  - AT+SENS=<group_id>,<esl_id>,<sensor_index>: Read Sensor Data \n");
-    printf("  - AT+REFRESH=<group_id>,<esl_id>,<display_index>: Refresh Display \n");
-    printf("  - AT+IMG=<group_id>,<esl_id>,<display_index>,<image_index>: Display Image \n");
-    printf("  - AT+IMGTIM=<group_id>,<esl_id>,<display_index>,<image_index>,<absolute_time>: Display Timed Image \n");
-    printf("  - AT+LED=<group_id>,<esl_id>,<led_index>,<led_component>,<pattern>,<off_period>,<on_period>,<repeat>: LED Control \n");
-    printf("  - AT+LEDTIM=<group_id>,<esl_id>,<led_index>,<led_component>,<pattern>,<off_period>,<on_period>,<repeat>,<absolute_time>: LED Timed Control \n");
+    printf("  - AT+UNASSOC=<group_id>,<esl_id>: Unassociate from AP\n");
+    printf("  - AT+SRVRST=<group_id>,<esl_id>: Service Reset\n");
+    printf("  - AT+FRST=<group_id>,<esl_id>: Factory Reset\n");
+    printf("  - AT+UPDCMP=<group_id>,<esl_id>: Update Complete\n");
+    printf("  - AT+SENS=<group_id>,<esl_id>,<sensor_index>: Read Sensor Data\n");
+    printf("  - AT+REFRESH=<group_id>,<esl_id>,<display_index>: Refresh Display\n");
+    printf("  - AT+IMG=<group_id>,<esl_id>,<display_index>,<image_index>: Display Image\n");
+    printf("  - AT+IMGTIM=<group_id>,<esl_id>,<display_index>,<image_index>,<absolute_time>: Display Timed Image\n");
+    printf("  - AT+LED=<group_id>,<esl_id>,<led_index>,<led_component_hex>,<pattern_hex>,<off_period>,<on_period>,<repeat_type>,<repeat_duration>: LED Control\n");
+    printf("  - AT+LEDTIM=<group_id>,<esl_id>,<led_index>,<led_component>,<pattern>,<off_period>,<on_period>,<repeat_type>,<repeat_duration>,<absolute_time>: LED Timed Control\n");
     
     printf("\nProprietary ESL commands: \n");
     printf("  - AT+TXT=<group_id>,<esl_id>,<text>: Set text\n  - <text> can be a string with maximum 15 characters\n");
     printf("  - AT+PRICE=<group_id>,<esl_id>,<val_int>,<val_fract>: Set price \n");
     
-    printf("\nCommands for special operations and for tests \n");
-    printf("  - AT+RECONF=<group_id>,<esl_id>,<new_group_id>,<new_esl_id>: Reconfigure an ESL with a new address \n");
-    printf("  - AT+CONN=<group_id>,<esl_id>: Connect to an ESL (ESL enters *updating state*) \n");
-    printf("  - AT+INFO: Read all the Information Characteristics from the connected ESL \n");    
-    printf("  - AT+DISPLAYINFO: Read the Display Information Characteristic from the connected ESL \n");
-    printf("  - AT+SENSORINFO: Read the Sensor Information Characteristic from the connected ESL \n");
-    printf("  - AT+LEDINFO: Read the LED Information Characteristic from the connected ESL \n");
-    printf("  - AT+CLRSCDB: Clear the security db \n");
+    printf("\nCommands for special operations or tests\n");
+    printf("  - AT+SCAN: Scan for ESLs\n");
+    printf("  - AT+ADD=<addr_type>,<addres>,<group_id>,<esl_id>: Add an ESL to the network\n");  
+    printf("  - AT+CONN=<group_id>,<esl_id>: Connect to an ESL for update\n");
+    printf("  - AT+RECONF=<new_group_id>,<new_esl_id>: Reconfigure the connnected ESL with a new address\n");
+    printf("  - AT+INFO: Read all the Information Characteristics from the connected ESL\n");    
+    printf("  - AT+DISPLAYINFO: Read the Display Information Characteristic from the connected ESL\n");
+    printf("  - AT+SENSORINFO: Read the Sensor Information Characteristic from the connected ESL\n");
+    printf("  - AT+LEDINFO: Read the LED Information Characteristic from the connected ESL\n");
+    printf("  - AT+CLRSCDB: Clear the security db\n");
     printf("  - AT+ABSTIME?: Read current absolute time\n");
-    printf("  - AT+HELP: List of AT commands \n");
+    printf("  - AT+OTPSEARCH: Discover images on the connected server on the ESL\n");
+    printf("  - AT+OTPSEARCH=<name>: Search and select the specified image on the connected ESL\n");
+    printf("  - AT+OTPMETA: Read metadata for current object\n");
+    printf("  - AT+OTPSTART=<truncate>: Open an L2CAP channel to transfer an image to the connected ESL. Set <truncate> to 1 to truncate image, otherwise set it to 0.\n");
+    printf("  - AT+OTPWRITE=<size>: Send image data, up to the given size in bytes (maximum is 5000). Data to be sent is stored inside image.c file.\n");
+    printf("  - AT+OTPCLOSE: Close L2CAP channel to transfer image data. It should be issued when there are not other images to be sent.\n");    
+    printf("  - AT+HELP: List of AT commands\n");
     return 0;
   }    
   return 1;  

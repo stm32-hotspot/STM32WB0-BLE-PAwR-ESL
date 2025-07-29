@@ -372,6 +372,21 @@
 			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/esl_display.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/STM32_BLE/App/led_flash.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/led_flash.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/STM32_BLE/App/ots.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/ots.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/STM32_BLE/App/ots_app.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/ots_app.c</locationURI>
+		</link>
+		<link>
 			<name>Application/User/STM32_BLE/App/time_ref.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/time_ref.c</locationURI>
@@ -457,24 +472,9 @@
 			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/display/GUI/GUI_Paint.c</locationURI>
 		</link>
 		<link>
-			<name>Application/User/STM32_BLE/App/display/euro_symbol_30.c</name>
+			<name>Application/User/STM32_BLE/App/display/background.c</name>
 			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/display/euro_symbol_30.c</locationURI>
-		</link>
-		<link>
-			<name>Application/User/STM32_BLE/App/display/sale_tag_70x69.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/display/sale_tag_70x69.c</locationURI>
-		</link>
-		<link>
-			<name>Application/User/STM32_BLE/App/display/st_logo_80x47.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/display/st_logo_80x47.c</locationURI>
-		</link>
-		<link>
-			<name>Application/User/STM32_BLE/App/display/star_70x64.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/display/star_70x64.c</locationURI>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/display/background.c</locationURI>
 		</link>
 		<link>
 			<name>Application/User/System/Config/Debug_GPIO/app_debug.c</name>

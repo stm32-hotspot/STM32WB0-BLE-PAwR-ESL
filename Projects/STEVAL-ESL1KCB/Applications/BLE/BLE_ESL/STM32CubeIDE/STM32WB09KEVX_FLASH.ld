@@ -47,8 +47,8 @@ _MEMORY_ROM_SIZE_    = 0x01800;          /* 6KB */
 _MEMORY_ROM_END_     = 0x100017FF;
 
 
-/* Reserved for BTLE stack non volatile memory */
-FLASH_NVM_DATASIZE   = (4*1024);
+/* Reserved for BTLE stack non volatile memory and display images */
+FLASH_NVM_DATASIZE   = (20*1024);
 
 
 MEMORY_FLASH_APP_OFFSET = DEFINED(MEMORY_FLASH_APP_OFFSET) ? (MEMORY_FLASH_APP_OFFSET) : (0) ;
@@ -189,6 +189,13 @@ SECTIONS
 	KEEP(*(TAG_OTA_END))
 	. = ALIGN(4);
   } >FLASH
+  
+  .preloaded_image :
+  {
+	. = ALIGN(4);
+	KEEP(*(PRELOADED_IMAGE_SECTION))
+	. = ALIGN(4);
+  } >REGION_NVM
 
   .heap (NOLOAD):
   {

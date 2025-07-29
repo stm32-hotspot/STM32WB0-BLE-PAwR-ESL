@@ -51,7 +51,7 @@ define symbol _MEMORY_ROM_END_        = 0x100017FF;
       
 
 /* Reserved for BTLE stack non volatile memory */
-define symbol FLASH_NVM_DATASIZE       = (4*1024);
+define symbol FLASH_NVM_DATASIZE       = (20*1024);
 
 if( !isdefinedsymbol( MEMORY_RAM_APP_OFFSET) ) {
   define symbol MEMORY_RAM_APP_OFFSET = (0x00);
@@ -100,6 +100,8 @@ place at start of REGION_FLASH { block FlashStart with fixed order {readonly sec
 keep {section .intvec};
 keep {section TAG_OTA_START};
 keep {section TAG_OTA_END};
+
+place at start of REGION_FLASH_NVM {block Image {readonly section PRELOADED_IMAGE_SECTION}};
 
 /*******************************************************************************
 * RAM Sections

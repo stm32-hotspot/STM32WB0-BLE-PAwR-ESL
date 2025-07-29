@@ -1726,7 +1726,7 @@ __weak void HAL_RADIO_MspInit(RADIO_HandleTypeDef *hradio)
   UNUSED(hradio);
 
   /* NOTE : This function Should not be modified, when the callback is needed,
-            the HAL_I2S_MspInit could be implemented in the user file
+            the HAL_RADIO_MspInit could be implemented in the user file
    */
 }
 

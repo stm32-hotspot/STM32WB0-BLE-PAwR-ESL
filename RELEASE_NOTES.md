@@ -1,7 +1,57 @@
 
 # Release Notes
 
-This package contains two specific applications to demonstrate Bluetooth Periodic Advertising with Response (PAwR) with Electronic Shelf Label (ESL) profile on STM32WB09 MCU. See README file for more details. 
+This package contains two specific applications to demonstrate Bluetooth Periodic Advertising with Response (PAwR) with Electronic Shelf Label (ESL) profile on STM32WB09 MCU. See README file for more details.
+
+## [2.1.0] - 2025-07-24
+ 
+### New Features
+
+- Alignment to STM32CubeWB0 v1.3.0 package.
+- Added commands for ESL provisioning on the AP: records with ESL info are stored in NVM
+- Added Flash area to store images
+- Added Object Transfer Profile, used to transfer images.
+- Added implementation of flashing pattern on ESL
+- Simplified some AT commands
+- Changed value of GAP Appearance characteristic
+- Changed declared Sleep Clock Accuracy to 50 ppm
+- Use standard representation for battery voltage sensor type (Present Input Voltage)
+- Code rearrangement and various improvements
+
+### Content
+
+Refer to Release Notes of STM32CubeWB0 v1.3.0 package for details of Components (Drivers, Cortex-M CMSIS, STM32 CMSIS, STMWB0x_HAL_Driver, STM32WB0x_Nucleo, Middlewares, Utilities)
+
+### Development Toolchains and Compilers
+
+- IAR Embedded Workbench for ARM (EWARM) toolchain from v9.30.1
+- uVision Microcontroller Development Kit (MDK-ARM) from v5.37
+- STM32CubeIDE from v1.16.1
+
+### Supported Devices and Boards
+
+- STM32WB09
+  - NUCLEO-WB09KE board
+  - STEVAL-ESL1KCB board
+
+### Bug fixes
+
+- ESL AP:
+  - Add check to understand if command needs to be sent to ECP.
+  - AP was stuck during provisioning if previously there was an error when trying to connect to an ESL.
+  - Fix issue with command callbacks: they were not called after last transmission.
+  - Other minor fixes
+- ESL:
+  - Fixed handling of Active LED flag.
+  - Added implementation of one timed command per resource.
+  - Fix issue when factory reset command is received: no write response was sent.
+  - Other minor fixes
+
+### Known Limitations
+- After a reset, the ESL gets unassociated. This limitation can be removed, but ESL will lose the absolute time provided by the AP: the AP needs
+  to set absolute time when synchronizing the ESL.
+- LED brightness control not implemented.
+- Not possible to cancel a create connection command: AT command to be implemented.
  
 ## [2.0.0] - 2025-03-04
  

@@ -37,16 +37,15 @@
 
 /* Codes for Commands */
 #define ESL_CMD_PING                            (0x00)
-#define ESL_CMD_UPDATE_COMPLETE                 (0x04)
-#define ESL_CMD_READ_SENSOR_DATA                (0x10)
-#define ESL_CMD_DISPLAY_IMG                     (0x20)
-#define ESL_CMD_LED_CONTROL                     (0xB0)
-
 #define ESL_CMD_UNASSOCIATE_FROM_AP             (0x01)
 #define ESL_CMD_SERVICE_RESET                   (0x02)
 #define ESL_CMD_FACTORY_RESET                   (0x03)
+#define ESL_CMD_UPDATE_COMPLETE                 (0x04)
+#define ESL_CMD_READ_SENSOR_DATA                (0x10)
 #define ESL_CMD_REFRESH_DISPLAY                 (0x11)
+#define ESL_CMD_DISPLAY_IMG                     (0x20)
 #define ESL_CMD_DISPLAY_TIMED_IMG               (0x60)
+#define ESL_CMD_LED_CONTROL                     (0xB0)
 #define ESL_CMD_LED_TIMED_CONTROL               (0xF0)
 
 /* Code for vendor-specific commands */
@@ -63,13 +62,13 @@
 
 #define BRC_ESL_ID                              (0xFF)
 
-#define MAX_TXT_LENGHT                           (11U)
-
 #define GET_PARAM_LENGTH_FROM_OPCODE(opcode)          ((((opcode) & 0xF0) >> 4) + 1)
 
 #define GET_LENGTH_FROM_OPCODE(opcode)                (GET_PARAM_LENGTH_FROM_OPCODE(opcode) + 1)
 
 #define SET_LENGTH_TO_OPCODE(tag, param_length)       (((tag) & 0x0F) | ((((param_length) - 1) & 0x0F) << 4))
+
+#define DIV_CEIL(x, y)                  (((x) + (y) - 1U) / (y))
 
 
 #define CONFIG_STATE_FLAG_ADDRESS           0x01
@@ -83,16 +82,7 @@
 
 #define C_SIZE_CMD_STRING       20
 
-
-typedef enum
-{
-  ECP_NOTIFICATION_OFF,
-  ECP_NOTIFICATION_ON,
-  /* USER CODE BEGIN Service1_APP_SendInformation_t */
-
-  /* USER CODE END Service1_APP_SendInformation_t */
-  ESL_APP_SENDINFORMATION_LAST
-} ESL_APP_SendInformation_t;
+#define MAX_TIMED_CMD_DELAY_MS          (4147200000)    // 48 days
 
 typedef struct
 {
@@ -102,7 +92,6 @@ typedef struct
 
 typedef struct
 {
-  ESL_APP_SendInformation_t ECP_Notification_Status;
   /* USER CODE BEGIN Service1_APP_Context_t */  
   ESL_APP_State_t state;
   uint8_t group_id;
@@ -113,7 +102,6 @@ typedef struct
   uint16_t basic_state;
   uint8_t a_resp[MAX_ADV_PAYLOAD];
   uint8_t config_state_flags;   /* Flags for written characteristics during configuration (CONFIG_STATE_FLAG macros) */
-  bool service_needed_state; /* The Service Needed state is reported via the Service Needed bit of the Basic State response */
   
   /* Synchronized timeout timerID*/
   /* If the ESL has not received a valid ESL message in a synchronization message from
@@ -122,19 +110,20 @@ typedef struct
   /* If the ESL is not moved to the Updating state for 60 minutes, then the 
      ESL shall transition to the Unassociated state */
   VTIMER_HandleType Unsynchronized_timer_Id;
+  
+  VTIMER_HandleType Disconnection_timer_Id;
+  
   /* USER CODE END Service1_APP_Context_t */  
-  uint16_t              ConnectionHandle;  
+  uint16_t ConnectionHandle;
+  uint8_t Peer_Address_Type;
+  uint8_t Peer_Address[6];
+  bool    connected;
+  bool   sync_recvd;
+  bool b_group_id_changed;
+  bool bFactoryReset;
 } ESL_APP_Context_t;
 
 ESL_APP_Context_t ESL_APP_Context;
-bool b_group_id_changed = false;
-VTIMER_HandleType Disconnection_timer_Id;
-
-extern uint8_t AP_bonded_Peer_Address[6];
-extern uint8_t AP_bonded_Peer_Address_Type;
-extern bool ESL_synchronized;
-extern bool bFactoryReset;
-extern bool ESL_connected;
 
 /* USER CODE BEGIN PV */
 static uint8_t CommandString[C_SIZE_CMD_STRING];
@@ -145,121 +134,56 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
 static void synch_packet_received(uint16_t pa_event, uint8_t *p_esl_data, uint8_t size);
 static void send_resp(uint16_t pa_event, uint8_t resp_slot, uint32_t *p_esl_resp, uint8_t resp_size);
 static void disconnection_delay(void *arg);
-static void ESL_APP_Unsynchronized_State(void);
-static void ESL_APP_Unsynchronized_State_Transition(void *arg);
-static void ESL_APP_Unsassociated_State_Transition(void *arg);
+static void ESL_APP_UnsynchronizedState(void);
+static void ESL_APP_UnsynchronizedStateTimerCB(void *arg);
+static void ESL_APP_UnassociatedStateTimerCB(void *arg);
+static void ESL_APP_UpdatingStateTransition(uint16_t sync_handle);
+static uint8_t factoryResetCmdCB(void);
+
+#if NUM_LEDS
+static uint8_t led_states[DIV_CEIL(NUM_LEDS,8)];
+
+static uint8_t LEDControlCmdCB(uint8_t led_index, uint8_t led_RGB_Brigthness, uint8_t led_flash_pattern[5], uint8_t off_period, uint8_t on_period, uint16_t led_repeat);
+static uint8_t LEDTimedControlCmdCB(uint8_t led_index,  uint8_t led_RGB_Brigthness, uint8_t led_flash_pattern[5], uint8_t off_period, uint8_t on_period, uint16_t led_repeat, uint32_t abs_time);
+static void LED_Timed_Cmd_timeout_cb(void *arg);
+static void checkPendingLedUpdate(void);
+
+/* Structures used for LED Timed Control Command */
+typedef struct
+{
+  uint8_t color_brigthness;
+  uint8_t pattern[5];
+  uint8_t off_period;
+  uint8_t on_period;
+  uint16_t repeat;
+  uint32_t abs_time;
+  VTIMER_HandleType timer;
+}LEDTimedInfo_t;
+
+LEDTimedInfo_t led_timed_info[NUM_LEDS];
+
+#endif
+
+#if NUM_DISPLAYS
+static uint8_t displayImageCmdCB(uint8_t display_index, uint8_t image_index);
+static uint8_t refreshDisplayCmdCB(uint8_t display_index, uint8_t *image_index_p);
+static uint8_t displayTimedImageCmdCB(uint8_t display_index, uint8_t image_index, uint32_t abs_time);
+static void Img_Timed_Cmd_timeout_cb(void *arg);
+static void checkPendingDisplayUpdate(void);
+
+/* Structures used for Display Timed Image Command */
+typedef struct
+{
+  uint8_t image_index;
+  uint32_t abs_time;
+  VTIMER_HandleType timer;
+}DisplayTimedInfo_t;
+
+DisplayTimedInfo_t display_timed_info[NUM_DISPLAYS];
+
+#endif
 
 /* Functions Definition ------------------------------------------------------*/
-void ESL_SERVICE_Notification(ESL_SERVICE_NotificationEvt_t *p_Notification)
-{
-  /* USER CODE BEGIN Service2_Notification_1 */
-
-  /* USER CODE END Service2_Notification_1 */
-  switch(p_Notification->EvtOpcode)
-  {
-    /* USER CODE BEGIN Service1_Notification_Service1_EvtOpcode */
-
-    /* USER CODE END Service1_Notification_Service1_EvtOpcode */
-    case ESL_SERVICE_ADDR_WRITE_EVT:
-      /* USER CODE BEGIN Service1Char1_WRITE_EVT */
-
-      /* USER CODE END Service1Char1_WRITE_EVT */
-      break;
-
-    case ESL_SERVICE_SYNC_KEY_MATERIAL_WRITE_EVT:
-      /* USER CODE BEGIN Service1Char1_WRITE_EVT */
-
-      /* USER CODE END Service1Char1_WRITE_EVT */
-      break;
-
-    case ESL_SERVICE_RESP_KEY_MATERIAL_WRITE_EVT:
-      /* USER CODE BEGIN Service1Char1_WRITE_EVT */
-
-      /* USER CODE END Service1Char1_WRITE_EVT */
-      break;
- 
-    case ESL_SERVICE_CONTROL_POINT_WRITE_EVT:
-      /* USER CODE BEGIN Service1Char1_WRITE_EVT */
-
-      /* USER CODE END Service1Char1_WRITE_EVT */
-      break;
-      
-    case ESL_SERVICE_CURR_ABS_TIME_WRITE_EVT:
-      /* USER CODE BEGIN Service1Char1_WRITE_EVT */
-
-      /* USER CODE END Service1Char1_WRITE_EVT */
-      break;
-      
-    case ESL_SERVICE_CONTROL_POINT_NOTIFY_ENABLED_EVT:
-      /* USER CODE BEGIN Service1Char5_NOTIFY_ENABLED_EVT */
-        APP_DBG_MSG("ESL_SERVICE_CONTROL_POINT_NOTIFY_ENABLED_EVT\n");
-        ESL_APP_Context.ECP_Notification_Status = ECP_NOTIFICATION_ON;
-      /* USER CODE END Service2Char3_NOTIFY_ENABLED_EVT */
-      break;
-
-    case ESL_SERVICE_CONTROL_POINT_NOTIFY_DISABLED_EVT:
-      /* USER CODE BEGIN Service1Char5_NOTIFY_DISABLED_EVT */
-        APP_DBG_MSG("ESL_SERVICE_CONTROL_POINT_NOTIFY_DISABLED_EVT\n");
-        ESL_APP_Context.ECP_Notification_Status = ECP_NOTIFICATION_OFF;
-      /* USER CODE END Service2Char3_NOTIFY_DISABLED_EVT */
-      break;
-
-    case ESL_SERVICE_LED_INFO_TIME_READ_EVT: 
-      /* USER CODE BEGIN Service1Char6_READ_EVT */
-
-      /* USER CODE END Service1Char6_READ_EVT */
-      break;    
-      
-    default:
-      /* USER CODE BEGIN Service2_Notification_default */
-
-      /* USER CODE END Service2_Notification_default */
-      break;
-  }
-  /* USER CODE BEGIN Service2_Notification_2 */
-
-  /* USER CODE END Service2_Notification_2 */
-  return;
-}
-
-
-void ESL_APP_EvtRx(ESL_APP_ConnHandleNotEvt_t *p_Notification)
-{
-  /* USER CODE BEGIN Service1_APP_EvtRx_1 */
-
-  /* USER CODE END Service1_APP_EvtRx_1 */
-
-  switch(p_Notification->EvtOpcode)
-  {
-    /* USER CODE BEGIN Service1_APP_EvtRx_Service1_EvtOpcode */
-
-    /* USER CODE END Service1_APP_EvtRx_Service1_EvtOpcode */
-  case   ESL_CONN_HANDLE_EVT:
-      ESL_APP_Context.ConnectionHandle = p_Notification->ConnectionHandle;
-      /* USER CODE BEGIN Service1_APP_CENTR_CONN_HANDLE_EVT */
-      ESL_APP_ConnectionComplete(p_Notification->ConnectionHandle);
-      /* USER CODE END Service1_APP_CENTR_CONN_HANDLE_EVT */
-      break;
-    case ESL_DISCON_HANDLE_EVT :
-      ESL_APP_Context.ConnectionHandle = 0xFFFF;
-      /* USER CODE BEGIN Service1_APP_DISCON_HANDLE_EVT */
-      ESL_APP_DisconnectionComplete(p_Notification->ConnectionHandle);
-      /* USER CODE END Service1_APP_DISCON_HANDLE_EVT */
-      break;
-
-    default:
-      /* USER CODE BEGIN Service1_APP_EvtRx_default */
-
-      /* USER CODE END Service1_APP_EvtRx_default */
-      break;
-  }
-
-  /* USER CODE BEGIN Service1_APP_EvtRx_2 */
-
-  /* USER CODE END Service1_APP_EvtRx_2 */
-
-  return;
-}
 
 void ESL_APP_Init(void)
 {
@@ -269,8 +193,6 @@ void ESL_APP_Init(void)
   ESL_APP_Context.state = ESL_STATE_UNASSOCIATED;
   
   ESL_APP_Context.config_state_flags = 0;
-  
-  set_Service_Needed_State(false);
   
   ESL_SERVICE_Init();
  
@@ -294,25 +216,31 @@ void ESL_APP_Init(void)
   /* Create timer to manage Synchronized timeout timerID*/
   /* If the ESL has not received a valid ESL message in a synchronization message from
      the AP for 60 minutes then the ESL shall transition to the Unsynchronized state. */  
-  ESL_APP_Context.Synchronized_timer_Id.callback = ESL_APP_Unsynchronized_State_Transition;   
+  ESL_APP_Context.Synchronized_timer_Id.callback = ESL_APP_UnsynchronizedStateTimerCB;   
   /* Create timer to manage Unsynchronized state timeout timerID*/
   /* If the ESL is not moved to the Updating state for 60 minutes, then the 
      ESL shall transition to the Unassociated state */
-  ESL_APP_Context.Unsynchronized_timer_Id.callback = ESL_APP_Unsassociated_State_Transition;
+  ESL_APP_Context.Unsynchronized_timer_Id.callback = ESL_APP_UnassociatedStateTimerCB;
   
-  Disconnection_timer_Id.callback = disconnection_delay;
+  ESL_APP_Context.Disconnection_timer_Id.callback = disconnection_delay;
     
 }
 
-void ESL_APP_ConnectionComplete(uint16_t connection_handle)
+void ESL_APP_ConnectionComplete(uint16_t connection_handle, uint16_t sync_handle, uint8_t Peer_Address_Type, uint8_t Peer_Address[6])
 {
+  ESL_APP_Context.connected = true;
   ESL_APP_Context.ConnectionHandle = connection_handle;
+  ESL_APP_Context.Peer_Address_Type = Peer_Address_Type;
+  memcpy(ESL_APP_Context.Peer_Address, Peer_Address, sizeof(ESL_APP_Context.Peer_Address));
+  
+  /* When the AP connects with the ESL, using the Periodic Advertising Connection 
+   procedure, the ESL transitions to the Updating state. */  
+  ESL_APP_UpdatingStateTransition(sync_handle);
 }
 
 /* To be called when a bond has been established. */
 void ESL_APP_PairingComplete(uint16_t connection_handle)
 {
-  //TODO: allow only one bonded AP.
   if(ESL_APP_Context.state == ESL_STATE_UNASSOCIATED)
   {
     APP_DBG_MSG("*** Configuring State\n");
@@ -323,6 +251,17 @@ void ESL_APP_PairingComplete(uint16_t connection_handle)
 
 void ESL_APP_DisconnectionComplete(uint16_t connection_handle)
 {
+  ESL_APP_Context.connected = false;
+  
+  if(ESL_APP_Context.bFactoryReset)
+  {
+    /* Request a restart */
+    aci_gap_clear_security_db();
+    ESL_DEVICE_FactoryResetCB();
+    
+    return;
+  }  
+  
   if(ESL_APP_Context.state == ESL_STATE_CONFIGURING)
   {
      /* If the connection is lost owing to link loss occurring in the Configuring 
@@ -341,7 +280,7 @@ void ESL_APP_DisconnectionComplete(uint16_t connection_handle)
           of the ESL has been successfully completed, the ESL shall transition 
           to the Unsynchronized state */
        APP_DBG_MSG("*** Unsynchronized state from Configuring state for link loss \n");
-       ESL_APP_Unsynchronized_State();
+       ESL_APP_UnsynchronizedState();
      }
   } 
   /* If the connection is lost owing to link loss occurring in the Updating state, 
@@ -349,19 +288,22 @@ void ESL_APP_DisconnectionComplete(uint16_t connection_handle)
   else if(ESL_APP_Context.state == ESL_STATE_UPDATING)
   {
     APP_DBG_MSG("*** Unsynchronized state from Updating state for link loss \n");
-    ESL_APP_Unsynchronized_State();
+    ESL_APP_UnsynchronizedState();
   }
   else if(ESL_APP_Context.state == ESL_STATE_UNASSOCIATED)
   {
     /* If a disconnection event is received before moving to configuring state, we go back advertising. */
     APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_START_LP);
-  }    
+  }
+  
+  memset(ESL_APP_Context.Peer_Address, 0, 6);
 }
 
 void ESL_APP_SyncLost(void)
 {
   APP_DBG_MSG("*** Unsynchronized state for sync lost\n");
-  ESL_APP_Unsynchronized_State();
+  ESL_APP_UnsynchronizedState();
+  ESL_APP_Context.sync_recvd = false;
 }
 
 /* Set the group_id and esl_id by ESL Address and return true if group_id is 
@@ -385,9 +327,9 @@ uint8_t ESL_APP_SetESLAddress(uint16_t address)
     
     ESL_APP_Context.config_state_flags |= CONFIG_STATE_FLAG_ADDRESS;
     if (ESL_APP_Context.group_id != prev_group_id)
-      b_group_id_changed = true;
+      ESL_APP_Context.b_group_id_changed = true;
     else
-      b_group_id_changed = false;
+      ESL_APP_Context.b_group_id_changed = false;
     
     return BLE_ATT_ERR_NONE;
   }
@@ -458,6 +400,7 @@ void ESL_APP_SyncInfoReceived(uint16_t sync_handle)
   tBleStatus ret;
     
   ESL_APP_Context.sync_handle = sync_handle;
+  ESL_APP_Context.sync_recvd = true;
   
   APP_DBG_MSG("hci_le_set_periodic_sync_subevent:");
   
@@ -591,6 +534,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         }
       }
       break;
+#if NUM_LEDS
     case ESL_CMD_LED_CONTROL:
       {
         uint8_t led_index;
@@ -607,7 +551,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         led_repeat = LE_TO_HOST_16(&p_cmd[11]);
         
         APP_DBG_MSG("LED CONTROL command [opcode: 0x%02x] \n", opcode);
-        ret = ESL_DEVICE_LEDControlCmdCB(led_index, led_RGB_Brigthness, led_flash_pattern, led_off_period, led_on_period, led_repeat);
+        ret = LEDControlCmdCB(led_index, led_RGB_Brigthness, led_flash_pattern, led_off_period, led_on_period, led_repeat);
         
         if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
         {
@@ -626,6 +570,46 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         }
       }
       break;
+    case ESL_CMD_LED_TIMED_CONTROL:
+      {                
+        uint8_t led_index;
+        uint8_t led_RGB_Brigthness;
+        uint16_t led_repeat; /* Repeat type and duration. */
+        uint8_t led_flash_pattern[5];
+        uint8_t led_off_period, led_on_period;
+        uint32_t led_abs_time; 
+        
+        APP_DBG_MSG("LED TIMED CONTROL command [opcode: 0x%02x] \n", opcode);
+        
+        led_index = p_cmd[2];
+        led_RGB_Brigthness = p_cmd[3]; 
+        memcpy(led_flash_pattern, &p_cmd[4], 5);
+        led_off_period = p_cmd[9];
+        led_on_period = p_cmd[10];
+        led_repeat = LE_TO_HOST_16(&p_cmd[11]);
+        led_abs_time = LE_TO_HOST_32(&p_cmd[13]);
+        
+        ret = LEDTimedControlCmdCB(led_index,  led_RGB_Brigthness, led_flash_pattern, led_off_period, led_on_period, led_repeat, led_abs_time);
+        
+        if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
+        {
+          /* Error */
+          esl_payload_resp[resp_idx] = ESL_RESP_ERROR;
+          esl_payload_resp[resp_idx + 1] = ret; /* ERROR_INVALID_PARAMETERS or ERROR_IMPLAUSIBLE_ABSOLUTE_TIME or ERROR_QUEUE_FULL */
+          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
+        }
+        
+        if(ret == 0 && esl_cmd_id != BRC_ESL_ID)
+        {            
+          //TBR: to check if response exceeds ESL payload size.
+          esl_payload_resp[resp_idx] = ESL_RESP_LED_STATE;
+          esl_payload_resp[resp_idx + 1] = led_index;
+          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
+        }
+      }
+      break;
+#endif
+#if NUM_SENSORS
     case ESL_CMD_READ_SENSOR_DATA:
       {
         uint8_t sensor_index;
@@ -635,22 +619,20 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         
         if(esl_cmd_id == BRC_ESL_ID)
         {
-          /* This command cannot have a broadcast address. Do not invoke callback. */
+          /* No response can be sent for broadcast command. Do not invoke callback. */
           break;
         }
                 
         sensor_index = p_cmd[2];
-        //PTS configuration with "One Sensor"
-        if (sensor_index > (MAX_NUM_SENSOR-1))
+        
+        if (sensor_index >= NUM_SENSORS)
         {
-          esl_payload_resp[resp_idx] = ESL_RESP_ERROR;
-          esl_payload_resp[resp_idx + 1] = ERROR_INVALID_PARAMETERS;
-          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
-          break;
+          ret = ERROR_INVALID_PARAMETERS;
         }
-        /* TBR: Need to use asynchronous response, since data from sensor may not 
-           be available immediately.Check also for available space in response.  */
-        ret = ESL_DEVICE_SensorDataCmdCB(sensor_index, &esl_payload_resp[resp_idx + 2], &sensor_data_length);
+        else
+        {
+          ret = ESL_DEVICE_SensorDataCmdCB(sensor_index, &esl_payload_resp[resp_idx + 2], &sensor_data_length);
+        }
         
         if(ret != 0)
         {
@@ -667,6 +649,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         }
       }
       break;
+#endif
     case ESL_CMD_VS_TXT:
       {
         APP_DBG_MSG("TXT VENDOR command [opcode: 0x%02x] \n", opcode);
@@ -684,7 +667,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         {
           esl_payload_resp[resp_idx] = ESL_RESP_VS_OK;
           esl_payload_resp[resp_idx + 1] = 0; /* Not used. */
-          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);            
+          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
         }
         
       }
@@ -719,10 +702,10 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         /* If an ESL receives the Update Complete command and it is synchronized, 
            the ESL shall immediately terminate the ACL connection and transition 
            to the Synchronized state. */
-        if (ESL_synchronized)    
+        if (ESL_APP_Context.sync_recvd)
         {         
           /* If group_id is changed then the ESL have to resynchronise with AP */
-          if (b_group_id_changed)
+          if (ESL_APP_Context.b_group_id_changed)
           {
             APP_DBG_MSG("hci_le_set_periodic_sync_subevent:");    
             ret = hci_le_set_periodic_sync_subevent(ESL_APP_Context.sync_handle,
@@ -742,7 +725,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
           APP_DBG_MSG("*** Synchronized State\n");
           ESL_APP_Context.state = ESL_STATE_SYNCHRONIZED;
           /* Delay for disconnection */
-          HAL_RADIO_TIMER_StartVirtualTimer(&Disconnection_timer_Id, 100);          
+          HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Disconnection_timer_Id, 100);
         }
         /* If an ESL receives the Update Complete command and it is not synchronized, 
            the ESL shall wait for synchronization to be established and then terminate 
@@ -769,16 +752,9 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
       {          
         APP_DBG_MSG("SERVICE RESET command [opcode: 0x%02x] \n", opcode);
         
-        ret = ESL_DEVICE_ServiceResetCmdCB();
+        ESL_DEVICE_ServiceResetCmdCB();
         
-        if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
-        {
-          esl_payload_resp[resp_idx] = ESL_RESP_ERROR;
-          esl_payload_resp[resp_idx + 1] = ret;
-          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
-        }
-        
-        if(ret == 0 && esl_cmd_id != BRC_ESL_ID)
+        if(esl_cmd_id != BRC_ESL_ID)
         {
           esl_payload_resp[resp_idx] = ESL_RESP_BASIC_STATE;
           //Basic State response bitmap parmam (16 bits)
@@ -791,7 +767,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
       {          
         APP_DBG_MSG("FACTORY RESET command [opcode: 0x%02x] \n", opcode);
         
-        ret = ESL_DEVICE_FactoryResetCmdCB();
+        ret = factoryResetCmdCB();
         
         if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
         {
@@ -802,12 +778,12 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
       }
       break;
       
-#if DISPLAY      
+#if NUM_DISPLAYS > 0      
     case ESL_CMD_DISPLAY_IMG:
       {        
         APP_DBG_MSG("DISPLAY IMAGE command [opcode: 0x%02x] \n", opcode);
         
-        ret = ESL_DEVICE_DisplayImageCmdCB(p_cmd[2], p_cmd[3]);
+        ret = displayImageCmdCB(p_cmd[2], p_cmd[3]);
         
         if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
         {
@@ -826,10 +802,12 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
       }
       break;      
     case ESL_CMD_REFRESH_DISPLAY:
-      {        
+      {
+        uint8_t image_index;
+        
         APP_DBG_MSG("REFRESH DISPLAY command [opcode: 0x%02x] \n", opcode);
         
-        ret = ESL_DEVICE_RefreshDisplayCmdCB(p_cmd[2]);
+        ret = refreshDisplayCmdCB(p_cmd[2], &image_index);
         
         if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
         {
@@ -842,7 +820,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         {
           esl_payload_resp[resp_idx] = ESL_RESP_DISPLAY_STATE;
           esl_payload_resp[resp_idx + 1] = p_cmd[2]; /* Display index */
-          esl_payload_resp[resp_idx + 2] = returnIndexCurrImage(); /* Image index */            
+          esl_payload_resp[resp_idx + 2] = image_index;
           resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
         }
       }
@@ -855,7 +833,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         
         img_abs_time = LE_TO_HOST_32(&p_cmd[4]);
         
-        ret = ESL_DEVICE_DisplayTimedImageCmdCB(p_cmd[2], p_cmd[3], img_abs_time);
+        ret = displayTimedImageCmdCB(p_cmd[2], p_cmd[3], img_abs_time);
         
         if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
         {
@@ -873,47 +851,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
         }
       }
       break;          
-#endif    
-      
-    case ESL_CMD_LED_TIMED_CONTROL:
-      {                
-        uint8_t led_index;
-        uint8_t led_RGB_Brigthness;
-        uint16_t led_repeat; /* Repeat type and duration. */
-        uint8_t led_flash_pattern[5];
-        uint8_t led_off_period, led_on_period;
-        uint32_t led_abs_time; 
-        
-        APP_DBG_MSG("LED TIMED CONTROL command [opcode: 0x%02x] \n", opcode);
-        
-        led_index = p_cmd[2];
-        led_RGB_Brigthness = p_cmd[3]; 
-        memcpy(led_flash_pattern, &p_cmd[4], 5);
-        led_off_period = p_cmd[9];
-        led_on_period = p_cmd[10];
-        led_repeat = LE_TO_HOST_16(&p_cmd[11]);
-        led_abs_time = LE_TO_HOST_32(&p_cmd[13]);
-        
-        ret = ESL_DEVICE_LEDTimedControlCmdCB(led_index,  led_RGB_Brigthness, led_flash_pattern, led_off_period, led_on_period, led_repeat, led_abs_time);
-        
-        if(ret != 0 && esl_cmd_id != BRC_ESL_ID)
-        {
-          /* Error */
-          esl_payload_resp[resp_idx] = ESL_RESP_ERROR;
-          esl_payload_resp[resp_idx + 1] = ret; /* ERROR_INVALID_PARAMETERS or ERROR_IMPLAUSIBLE_ABSOLUTE_TIME or ERROR_QUEUE_FULL */
-          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
-        }
-        
-        if(ret == 0 && esl_cmd_id != BRC_ESL_ID)
-        {            
-          //TBR: to check if response exceeds ESL payload size.
-          esl_payload_resp[resp_idx] = ESL_RESP_LED_STATE;
-          esl_payload_resp[resp_idx + 1] = led_index;
-          resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
-        }
-      }
-      break;           
-
+#endif
     default:
       esl_payload_resp[resp_idx] = ESL_RESP_ERROR;
       esl_payload_resp[resp_idx + 1] = ERROR_INVALID_OPCODE;
@@ -925,7 +863,6 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
 
 static void disconnection_delay(void *arg)
 {
-  HAL_RADIO_TIMER_StopVirtualTimer(&Disconnection_timer_Id);
   APP_BLE_Procedure_Gap_General(PROC_GAP_GEN_CONN_TERMINATE);
 }
 
@@ -1019,7 +956,7 @@ static void send_resp(uint16_t pa_event, uint8_t resp_slot, uint32_t *p_esl_resp
   }
 }
 
-void ESL_ControlPoint_received(uint8_t *p_cmd, uint8_t size)
+void ESL_APP_ControlPointReceived(uint8_t *p_cmd, uint8_t size)
 {
   uint8_t opcode;
   uint8_t param_length;
@@ -1046,7 +983,7 @@ void ESL_ControlPoint_received(uint8_t *p_cmd, uint8_t size)
     /* If, after receipt of the Factory Reset cmd and prior to disconnection from
        the AP, the ESL receives any other cmd from the AP written to the ECP char,
        then the other cmd shall be rejected with the error code: ”Unspecified Error” */
-    if ((bFactoryReset) && (ESL_connected))
+    if ((ESL_APP_Context.bFactoryReset) && (ESL_APP_Context.connected))
     {
       esl_payload_resp[resp_idx] = ESL_RESP_ERROR;
       esl_payload_resp[resp_idx + 1] = ERROR_UNSPECIFIED;
@@ -1091,7 +1028,7 @@ uint8_t ESL_APP_ConfiguringOrUpdatingState(void)
     return 0;
 }
 
-static void ESL_APP_Unsynchronized_State(void)
+static void ESL_APP_UnsynchronizedState(void)
 {
   ESL_APP_Context.state = ESL_STATE_UNSYNCHRONIZED;
   /* In the Unsynchronized state, the ESL shall enter a GAP connectable mode. 
@@ -1108,20 +1045,20 @@ static void ESL_APP_Unsynchronized_State(void)
 // Synchronized_timer_Id callback
 /* If the ESL has not received a valid ESL message in a synchronization message from
    the AP for 60 minutes then the ESL shall transition to the Unsynchronized state. */
-static void ESL_APP_Unsynchronized_State_Transition(void *arg)
+static void ESL_APP_UnsynchronizedStateTimerCB(void *arg)
 {
   if(ESL_APP_Context.state == ESL_STATE_SYNCHRONIZED)
   {  
     APP_DBG_MSG("Unsynchronized state for timeout\n");
     hci_le_periodic_advertising_terminate_sync(ESL_APP_Context.sync_handle);
-    ESL_APP_Unsynchronized_State();
+    ESL_APP_UnsynchronizedState();
   }
 }
 
 // Unsynchronized_timer_Id callback
 /* If the ESL is not moved to the Updating state for 60 minutes, then the 
    ESL shall transition to the Unassociated state */
-static void ESL_APP_Unsassociated_State_Transition(void *arg)
+static void ESL_APP_UnassociatedStateTimerCB(void *arg)
 {
   if(ESL_APP_Context.state == ESL_STATE_UNSYNCHRONIZED)
   { 
@@ -1135,8 +1072,7 @@ static void ESL_APP_Unsassociated_State_Transition(void *arg)
   }
 }
 
-
-void ESL_APP_Updating_State_Transition(uint16_t sync_handle)
+static void ESL_APP_UpdatingStateTransition(uint16_t sync_handle)
 { 
   if (sync_handle != 0xFFFF)
   {
@@ -1148,7 +1084,7 @@ void ESL_APP_Updating_State_Transition(uint16_t sync_handle)
     {  
       /* The ESL shall transition to the Updating state only if the peer device 
          is the Client with which the ESL is already associated. */  
-      if(aci_gap_is_device_bonded(AP_bonded_Peer_Address_Type, AP_bonded_Peer_Address) == BLE_STATUS_SUCCESS)
+      if(aci_gap_is_device_bonded(ESL_APP_Context.Peer_Address_Type, ESL_APP_Context.Peer_Address) == BLE_STATUS_SUCCESS)
       {
         ESL_APP_Context.state = ESL_STATE_UPDATING;
         APP_DBG_MSG("*** Updating state transition from Synchronized state\n"); 
@@ -1171,11 +1107,6 @@ void ESL_APP_Updating_State_Transition(uint16_t sync_handle)
   }  
 }
 
-uint8_t ESL_APP_Get_ESL_State(void)
-{
-  return ESL_APP_Context.state;
-}
-
 int ESL_APP_GetAddress(uint8_t *group_id_p, uint8_t *esl_id_p)
 {
   if(ESL_APP_Context.state < ESL_STATE_SYNCHRONIZED)
@@ -1189,14 +1120,14 @@ int ESL_APP_GetAddress(uint8_t *group_id_p, uint8_t *esl_id_p)
   return 0;
 }
 
-void ESL_APP_pairing_request(uint16_t connHandle)
+void ESL_APP_PairingRequest(uint16_t connHandle)
 {
   Bonded_Device_Entry_t bonded_devices;
   uint8_t num_devices = 0;
   
   /* The Server shall reject any pairing requests that are received 
      while the Server is in the Updating state */
-  if (ESL_APP_Get_ESL_State() == ESL_STATE_UPDATING)
+  if (ESL_APP_Context.state == ESL_STATE_UPDATING)
   {
     //reject any pairing request
     aci_gap_pairing_resp(connHandle, 0);
@@ -1215,17 +1146,11 @@ void ESL_APP_pairing_request(uint16_t connHandle)
     /* Reject pairing */
     aci_gap_pairing_resp(connHandle, 0);    
   }
-}
-
-uint16_t ESL_APP_Get_Basic_State_Bitmap(void)
-{
-  return ESL_APP_Context.basic_state;
 }    
-    
 
 /* Return 1 if the basic_resp_bit is already set, else set the basic_resp_bit
    on Basic State bitmap and return 0 */
-uint8_t ESL_APP_Set_Basic_State_Bitmap(uint8_t basic_resp_bit)
+uint8_t ESL_APP_SetBasicStateBitmap(uint8_t basic_resp_bit)
 {
   if(ESL_APP_Context.basic_state & basic_resp_bit) 
   {
@@ -1238,7 +1163,7 @@ uint8_t ESL_APP_Set_Basic_State_Bitmap(uint8_t basic_resp_bit)
   }
 }
 
-void ESL_APP_Unset_Basic_State_Bitmap(uint8_t basic_resp_bit)
+void ESL_APP_ResetBasicStateBitmap(uint8_t basic_resp_bit)
 {
   ESL_APP_Context.basic_state &= (~basic_resp_bit);
 }
@@ -1261,46 +1186,6 @@ void ESL_APP_UnassociatedFromAPCmd(void)
   APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_START_LP);
 }
 
-void ESL_APP_FactoryResetCmd(void)
-{
-  /* The ESL shall become unassociated from any AP and shall revert to its 
-     original state before it was associated with an AP.
-     The ESL shall remove all bonding information with the AP, delete
-     the value of the AP Sync Key Material, ESL Response Key Material, 
-     and ESL Address in internal storage; and delete any stored image 
-     data that was written to the ESL. */                
-  memset(ESL_APP_Context.esl_resp_key_material.Session_Key, 0, 16);
-  memset(ESL_APP_Context.esl_resp_key_material.IV, 0, 8);
-  ESL_APP_Context.group_id = -1;
-  
-  ESL_APP_Context.sync_handle = 0xFFFF;
-  ESL_APP_Context.basic_state = 0;
-  ESL_APP_Context.config_state_flags = 0;
-  set_Service_Needed_State(false);
-  
-  ESL_APP_UnassociatedFromAPCmd();
-}
-
-bool get_Service_Needed_State(void)
-{
-  return ESL_APP_Context.service_needed_state;
-}
-
-// To set the Service Needed state 
-void set_Service_Needed_State(bool bvalue)
-{
-  ESL_APP_Context.service_needed_state = bvalue;
-  
-  /* If a condition occurs that causes the ESL to set the Service Needed state to
-     True, then the ESL shall set the value of the Service Needed bit to True. 
-     This shall remain True until it is reset by the Client (Service Reset cmd) */
-  if (bvalue)
-  {
-    ESL_APP_Set_Basic_State_Bitmap(BASIC_STATE_SERVICE_NEEDED_BIT);
-  }  
-}
-
-
 void UartRxCpltCallback(uint8_t * pRxDataBuff, uint16_t nDataSize)
 {
   /* nDataSize always 1 in current implementation. */
@@ -1313,7 +1198,7 @@ void UartRxCpltCallback(uint8_t * pRxDataBuff, uint16_t nDataSize)
     if (*pRxDataBuff == '\r')
     {
       CommandString[indexReceiveChar] = '\0';
-      ESL_APP_CMD_ProcessRequestCB();
+      ESL_APP_CmdProcessRequestCB();
     }
     else
     {
@@ -1326,7 +1211,7 @@ static int parse_cmd(void)
 {
   if(strncasecmp((char *)CommandString, "HELP", 4) == 0)
   {
-    APP_DBG_MSG("List of commands usefull for tests: \n");
+    APP_DBG_MSG("List of commands useful for tests: \n");
     APP_DBG_MSG("  - ABSTIME: Get Current Absolute Time\n");
     APP_DBG_MSG("  - SRVNEEDED: Set Service Needed bit to True \n");
     APP_DBG_MSG("  - UNSYNC: Set The ESL state to Unsynchronized \n");
@@ -1341,25 +1226,20 @@ static int parse_cmd(void)
   else if(strncasecmp((char *)CommandString, "SRVNEEDED", 9) == 0)
   {
     APP_DBG_MSG("--> Set Service Needed bit to True\n");
-    ESL_APP_Set_Basic_State_Bitmap(BASIC_STATE_SERVICE_NEEDED_BIT);
+    ESL_APP_SetBasicStateBitmap(BASIC_STATE_SERVICE_NEEDED_BIT);
     return 0;
   } 
   else if(strncasecmp((char *)CommandString, "UNSYNC", 6) == 0)
   {
-    APP_DBG_MSG("--> Set The ESL state to Unsynchronized\n");
-    ESL_APP_Unsynchronized_State();
+    APP_DBG_MSG("--> Set The ESL state to Unsynchronized\n");    
+    hci_le_periodic_advertising_terminate_sync(ESL_APP_Context.sync_handle);
+    ESL_APP_UnsynchronizedState();
     return 0;
-  }   
-  else if(strncasecmp((char *)CommandString, "NODISPLAY", 9) == 0)
-  {
-    APP_DBG_MSG("--> Each display is not displaying an image \n");
-    setImageDisplayed(false);
-    return 0;
-  }  
+  }
   return 1;
 }
 
-void ESL_APP_cmd_process(void)
+void ESL_APP_CmdProcess(void)
 {
   if(parse_cmd() == 0)
   {
@@ -1373,3 +1253,353 @@ void ESL_APP_cmd_process(void)
   indexReceiveChar = 0; 
 }
 
+static uint8_t factoryResetCmdCB(void)
+{
+  /* If an ESL in the Synchronized state receives a Factory Reset command, 
+     then the ESL shall send the Error response: Invalid State.*/
+  if (ESL_APP_Context.state == ESL_STATE_SYNCHRONIZED)
+  {
+    ESL_APP_Context.bFactoryReset = false;
+    return ERROR_INVALID_STATE;
+  }  
+  if ((ESL_APP_Context.state == ESL_STATE_CONFIGURING) ||
+      (ESL_APP_Context.state == ESL_STATE_UPDATING)) 
+  {
+    ESL_APP_Context.bFactoryReset = true;
+    /* The ESL shall initiate disconnection of the link with the AP */
+    HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Disconnection_timer_Id, 200);
+  }
+  
+  return 0;
+}
+
+#if NUM_LEDS
+
+/* Returns if any LED is set to active */
+static bool get_active_led_state(void)
+{
+  for(uint8_t i = 0; i < sizeof(led_states); i++)
+  {
+    if(led_states[i] != 0)
+      return true;
+  }
+  
+  return false;
+}
+
+void ESL_APP_SetLEDState(uint8_t index, ESL_APP_LEDState_t led_state)
+{
+  uint8_t byte_idx; /* Index of the byte inside the array */
+  uint8_t bit_offset; /* Index of the bit inside the byte */
+  
+  byte_idx = index / 8;  
+  bit_offset = index % 8;
+  
+  if(led_state == ESL_LED_INACTIVE)
+  {
+    led_states[byte_idx] &= ~(1 << bit_offset);
+    
+    if(get_active_led_state() == false)
+    {
+      ESL_APP_ResetBasicStateBitmap(BASIC_STATE_ACTIVE_LED_BIT);
+    }
+  }
+  else
+  {
+    led_states[byte_idx] |= (1 << bit_offset);
+    
+    if(get_active_led_state() == true)
+    {
+      ESL_APP_SetBasicStateBitmap(BASIC_STATE_ACTIVE_LED_BIT);   
+    }
+  }
+}
+
+static uint8_t LEDControlCmdCB(uint8_t led_index, uint8_t led_RGB_Brigthness, uint8_t led_flash_pattern[5], uint8_t off_period, uint8_t on_period, uint16_t led_repeat)
+{
+  uint16_t repeat_duration = led_repeat >> 1;                   //other 15 bits of led_repeat
+  
+  if (led_index >= NUM_LEDS)
+  {
+    return ERROR_INVALID_PARAMETERS;
+  }
+  
+  if (repeat_duration != 0)
+  {  
+    /* A Bit_Off_Period  or Bit_On_Period value of 0 ms is invalid */
+    if ((off_period == 0) || (on_period == 0))
+    {
+      return ERROR_INVALID_PARAMETERS;
+    } 
+  }
+  
+  ESL_DEVICE_LEDControlCmdCB(led_index, led_RGB_Brigthness, led_flash_pattern, off_period, on_period, led_repeat);
+  
+  return 0;
+}
+
+static uint8_t LEDTimedControlCmdCB(uint8_t led_index, uint8_t led_RGB_Brigthness, uint8_t led_flash_pattern[5], uint8_t off_period, uint8_t on_period, uint16_t led_repeat, uint32_t abs_time)
+{
+  uint32_t curr_abs_time;
+  uint32_t delay;
+  uint16_t repeat_duration = led_repeat >> 1;
+  
+  if (led_index >= NUM_LEDS)
+  {
+    return ERROR_INVALID_PARAMETERS;
+  }
+  
+  if (repeat_duration != 0)
+  {  
+    /* A Bit_Off_Period  or Bit_On_Period value of 0 ms is invalid */
+    if ((off_period == 0) || (on_period == 0))
+    {
+      return ERROR_INVALID_PARAMETERS;
+    } 
+  }
+  
+  if(led_timed_info[led_index].timer.active)
+  {  
+    /* An LED Timed Control command is received while an LED Timed Control command is already pending */
+    if (abs_time == 0x00000000) 
+    {
+      /* If the value of the Absolute Time parameter is zero (0x00000000), 
+      then the pending LED Timed Control command shall be deleted.*/
+      HAL_RADIO_TIMER_StopVirtualTimer(&led_timed_info[led_index].timer);
+      APP_DBG_MSG("Pending LED command deleted\n");
+      checkPendingLedUpdate();
+      return 0;
+    }
+  }
+  
+  curr_abs_time = TIMEREF_GetCurrentAbsTime();
+  delay = abs_time - curr_abs_time;
+  
+  APP_DBG_MSG("Current time: %d\n", curr_abs_time); 
+  APP_DBG_MSG("Requested time: %d\n", abs_time);
+  
+  if (delay > MAX_TIMED_CMD_DELAY_MS) 
+  {
+    //Absolute time is more than 48 days
+    return ERROR_IMPLAUSIBLE_ABSOLUTE_TIME;
+  }
+  
+  if(led_timed_info[led_index].timer.active && led_timed_info[led_index].abs_time != abs_time)
+  {
+    APP_DBG_MSG("Queue full\n");
+    /* The ESL shall send the Error response: Queue Full. The LED Timed 
+    Control command that was already pending remains unchanged. */
+    return ERROR_QUEUE_FULL;
+  }
+  
+  led_timed_info[led_index].color_brigthness = led_RGB_Brigthness;
+  memcpy(led_timed_info[led_index].pattern, led_flash_pattern, sizeof(led_timed_info[led_index].pattern));
+  led_timed_info[led_index].off_period = off_period;
+  led_timed_info[led_index].on_period = on_period;
+  led_timed_info[led_index].repeat = led_repeat;
+  led_timed_info[led_index].abs_time = abs_time;
+  
+  if(led_timed_info[led_index].timer.active)
+  {
+    APP_DBG_MSG("Pending LED command replaced\n");
+  }
+  else
+  {
+    if(delay == 0)
+    {
+      /* Immediately call the callback. */
+      ESL_DEVICE_LEDControlCmdCB(led_index, led_RGB_Brigthness, led_flash_pattern, off_period, on_period, led_repeat); 
+    }
+    else
+    {
+      led_timed_info[led_index].timer.callback = LED_Timed_Cmd_timeout_cb;
+      led_timed_info[led_index].timer.userData = &led_timed_info[led_index];
+      HAL_RADIO_TIMER_StartVirtualTimer(&led_timed_info[led_index].timer, delay);
+      APP_DBG_MSG("Timer started. Pending LED Update bit set\n");
+      ESL_APP_SetBasicStateBitmap(BASIC_STATE_PENDING_LED_UPDATE_BIT);
+    }
+  }
+  
+  return 0;
+}
+
+/* Reset Pending LED Update bit if no pending commands are present. */
+static void checkPendingLedUpdate(void)
+{
+  uint16_t i;
+  
+  /* Search for pending LED commands */
+  for(i = 0; i < NUM_LEDS; i++)
+  {
+    if(led_timed_info[i].timer.active)
+    {
+      break;
+    }
+  }  
+  if(i == NUM_LEDS)
+  {
+    /* No pending commands */
+    ESL_APP_ResetBasicStateBitmap(BASIC_STATE_PENDING_LED_UPDATE_BIT);
+    APP_DBG("Pending LED Update bit reset\n");
+  }  
+}
+
+static void LED_Timed_Cmd_timeout_cb(void *arg)
+{
+  VTIMER_HandleType *timer_p = (VTIMER_HandleType *)arg;
+  LEDTimedInfo_t *led_timed_info_p = timer_p->userData;
+  uint8_t led_index = led_timed_info_p - led_timed_info;
+  
+  /* Search for pending LED commands */
+  checkPendingLedUpdate();
+  
+  ESL_DEVICE_LEDControlCmdCB(led_index, led_timed_info_p->color_brigthness, led_timed_info_p->pattern, led_timed_info_p->off_period, led_timed_info_p->on_period, led_timed_info_p->repeat);
+}
+
+#endif
+
+#if NUM_DISPLAYS > 0
+
+static uint8_t displayImageCmdCB(uint8_t display_index, uint8_t image_index)
+{
+  APP_DBG_MSG("Display Index: %d - Image Index: %d\n", display_index, image_index);
+  if (display_index >= NUM_DISPLAYS)
+  {
+    return ERROR_INVALID_PARAMETERS;
+  }  
+  if (image_index >= NUM_IMAGES)
+  {
+    return ERROR_INVALID_IMAGE_INDEX;
+  }
+  
+  return ESL_DEVICE_DisplayImageCmdCB(display_index, image_index);
+}
+
+static uint8_t displayTimedImageCmdCB(uint8_t display_index, uint8_t image_index, uint32_t abs_time)
+{
+  uint32_t curr_abs_time;
+  uint32_t delay;
+  uint8_t ret;
+  
+  if (display_index >= NUM_DISPLAYS)
+    return ERROR_INVALID_PARAMETERS;
+  
+  if (image_index >= NUM_IMAGES)
+    return ERROR_INVALID_IMAGE_INDEX;
+  
+  if(display_timed_info[display_index].timer.active)
+  {  
+    /* An Display Timed Image command is received while a Display Timed Image command is already pending */
+    if (abs_time == 0x00000000) 
+    {
+      /* If the value of the Absolute Time parameter is zero (0x00000000), 
+      then the pending Display Timed Image command shall be deleted.*/
+      HAL_RADIO_TIMER_StopVirtualTimer(&display_timed_info[display_index].timer);
+      APP_DBG_MSG("Pending LED command deleted\n");
+      checkPendingDisplayUpdate();
+      return 0;
+    }
+  }
+  
+  curr_abs_time = TIMEREF_GetCurrentAbsTime();
+  delay = abs_time - curr_abs_time;
+  
+  APP_DBG_MSG("Current time: %d\n", curr_abs_time); 
+  APP_DBG_MSG("Requested time: %d\n", abs_time);
+
+  if (delay > MAX_TIMED_CMD_DELAY_MS) 
+  {
+    //Absolute time is more than 48 days
+    return ERROR_IMPLAUSIBLE_ABSOLUTE_TIME;
+  }
+  
+  if(display_timed_info[display_index].timer.active && display_timed_info[display_index].abs_time != abs_time)
+  {
+    APP_DBG_MSG("Queue full\n");
+    /* The ESL shall send the Error response: Queue Full. The LED Timed 
+    Control command that was already pending remains unchanged. */
+    return ERROR_QUEUE_FULL;
+  }
+  
+  /* Call a callback to understand if image is valid */
+  ret = ESL_DEVICE_DisplayTimedImageCmdCB(image_index);
+  if(ret != 0)
+    return ret;
+  
+  display_timed_info[display_index].image_index = image_index;
+  display_timed_info[display_index].abs_time = abs_time;
+  
+  if(display_timed_info[display_index].timer.active)
+  {
+    APP_DBG_MSG("Pending Display command replaced\n");
+  }
+  else
+  {
+    if(delay == 0)
+    {
+      /* Immediately call the callback. */
+      ESL_DEVICE_DisplayImageCmdCB(display_index, image_index);
+    }
+    else
+    {
+      display_timed_info[display_index].timer.callback = Img_Timed_Cmd_timeout_cb;
+      display_timed_info[display_index].timer.userData = &display_timed_info[display_index];
+      HAL_RADIO_TIMER_StartVirtualTimer(&display_timed_info[display_index].timer, delay);
+      APP_DBG_MSG("Timer started. Pending Display Update bit set\n");
+      ESL_APP_SetBasicStateBitmap(BASIC_STATE_PENDING_DISPLAY_UPDATE_BIT);
+    }
+  }
+    
+  return 0;
+}
+
+/* Reset Pending Display Update bit if no pending commands are present. */
+static void checkPendingDisplayUpdate(void)
+{
+  uint16_t i;
+  
+  /* Search for pending LED commands */
+  for(i = 0; i < NUM_DISPLAYS; i++)
+  {
+    if(display_timed_info[i].timer.active)
+    {
+      break;
+    }
+  }  
+  if(i == NUM_DISPLAYS)
+  {
+    /* No pending commands */
+    ESL_APP_ResetBasicStateBitmap(BASIC_STATE_PENDING_DISPLAY_UPDATE_BIT);
+    APP_DBG("Pending Display Update bit reset\n");
+  }  
+}
+
+static void Img_Timed_Cmd_timeout_cb(void *arg)
+{
+  VTIMER_HandleType *timer_p = (VTIMER_HandleType *)arg;
+  DisplayTimedInfo_t *display_timed_info_p = timer_p->userData;
+  uint8_t display_index = display_timed_info_p - display_timed_info;
+  
+  /* Search for pending Display commands */
+  checkPendingDisplayUpdate();
+  
+  ESL_DEVICE_DisplayImageCmdCB(display_index, display_timed_info_p->image_index);
+}
+
+static uint8_t refreshDisplayCmdCB(uint8_t display_index, uint8_t *image_index_p)
+{ 
+  APP_DBG_MSG("Refresh Display Command - Index: %d\n", display_index);
+
+  /* If the display identified in the parameter value does not exist, or if there 
+     is no image currently being displayed on the specified display, the ESL shall
+     send an Error response. */
+  
+  if (display_index >= NUM_DISPLAYS)
+  {
+    return ERROR_INVALID_PARAMETERS;
+  }
+
+  return ESL_DEVICE_RefreshDisplayCmdCB(display_index, image_index_p);
+}
+
+#endif

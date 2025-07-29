@@ -47,8 +47,8 @@ STM32WB09 memory map
 #define _MEMORY_ROM_END_      0x100017FF  
 
 
-/* Reserved for BTLE stack non volatile memory */
-#define FLASH_NVM_DATASIZE     (4*1024)
+/* Reserved for BTLE stack non volatile memory and display images */
+#define FLASH_NVM_DATASIZE     (20*1024)
 
 #ifndef MEMORY_FLASH_APP_OFFSET
 #define MEMORY_FLASH_APP_OFFSET  (0)
@@ -62,10 +62,6 @@ LR_IROM1 (_MEMORY_FLASH_BEGIN_+MEMORY_FLASH_APP_OFFSET) (MEMORY_FLASH_APP_SIZE) 
   
   REGION_FLASH_RESET (_MEMORY_FLASH_BEGIN_ + MEMORY_FLASH_APP_OFFSET) (0xC0)  { ; load address = execution address
    *.o (RESET, +FIRST)
-  }
-  
-  REGION_FLASH_OTATAG_START +0 (0x04)  {
-   *.o (TAG_OTA_START)
   }
   
   REGION_FLASH +0 {
@@ -96,14 +92,11 @@ LR_IROM1 (_MEMORY_FLASH_BEGIN_+MEMORY_FLASH_APP_OFFSET) (MEMORY_FLASH_APP_SIZE) 
 
 }
 
-LR_IROM2 +0 4  {
+LR_IROM2 (_MEMORY_FLASH_END_- FLASH_NVM_DATASIZE + 1) FLASH_NVM_DATASIZE  {
 
-  REGION_FLASH_OTATAG +0 4 {
-   *.o (TAG_OTA_END)
+  REGION_FLASH_PRELOADED_IMAGE +0 {
+   background.o (+RO)
   }
-
 }
 
 ScatterAssert( ImageLimit(REGION_RAM_RW) <= _MEMORY_RAM_END_ + 1 )
-
-ScatterAssert( LoadLimit(LR_IROM2) <= (_MEMORY_FLASH_BEGIN_ + MEMORY_FLASH_APP_OFFSET + MEMORY_FLASH_APP_SIZE) )

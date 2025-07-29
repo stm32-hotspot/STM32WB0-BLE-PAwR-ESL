@@ -35,8 +35,6 @@ extern "C" {
 /* Exported defines ----------------------------------------------------------*/
 /* USER CODE BEGIN ED */
 
-#define ST_COMPANY_ID          0x0030
-#define BATT_SENSOR_ID         0x0090
 /* USER CODE END ED */
 
 /* Exported types ------------------------------------------------------------*/
@@ -56,25 +54,6 @@ typedef enum
   ESL_SERVICE_CHAROPCODE_LAST
 } ESL_SERVICE_CharOpcode_t;
 
-typedef enum
-{
-  ESL_SERVICE_ADDR_WRITE_EVT,
-  ESL_SERVICE_SYNC_KEY_MATERIAL_WRITE_EVT,
-  ESL_SERVICE_RESP_KEY_MATERIAL_WRITE_EVT,
-  ESL_SERVICE_CURR_ABS_TIME_WRITE_EVT,
-  ESL_SERVICE_CONTROL_POINT_WRITE_NO_RESP_EVT,
-  ESL_SERVICE_CONTROL_POINT_WRITE_EVT,  
-  ESL_SERVICE_CONTROL_POINT_NOTIFY_ENABLED_EVT,
-  ESL_SERVICE_CONTROL_POINT_NOTIFY_DISABLED_EVT,
-
-  ESL_SERVICE_LED_INFO_TIME_READ_EVT,
-  /* USER CODE BEGIN Service1_OpcodeEvt_t */
-
-  /* USER CODE END Service1_OpcodeEvt_t */
-
-  ESL_SERVICE_BOOT_REQUEST_EVT
-} ESL_SERVICE_OpcodeEvt_t;
-
 typedef struct
 {
   uint8_t *p_Payload;
@@ -85,20 +64,6 @@ typedef struct
   /* USER CODE END Service1_Data_t */
 
 } ESL_SERVICE_Data_t;
-
-typedef struct
-{
-  ESL_SERVICE_OpcodeEvt_t       EvtOpcode;
-  ESL_SERVICE_Data_t             DataTransfered;
-  uint16_t                ConnectionHandle;
-  uint16_t                AttributeHandle;
-  uint8_t                 ServiceInstance;
-
-  /* USER CODE BEGIN Service1_NotificationEvt_t */
-
-  /* USER CODE END Service1_NotificationEvt_t */
-
-} ESL_SERVICE_NotificationEvt_t;
 
 /* USER CODE BEGIN ET */
 
@@ -121,8 +86,6 @@ typedef struct
 
 /* Exported functions ------------------------------------------------------- */
 void ESL_SERVICE_Init(void);
-void ESL_SERVICE_Notification(ESL_SERVICE_NotificationEvt_t *p_Notification);
-tBleStatus ESL_SERVICE_UpdateValue(ESL_SERVICE_CharOpcode_t CharOpcode, ESL_SERVICE_Data_t *pData);
 tBleStatus ESL_SERVICE_NotifyValue(ESL_SERVICE_CharOpcode_t CharOpcode, ESL_SERVICE_Data_t *pData, uint16_t ConnectionHandle);
 /* USER CODE BEGIN EF */
 

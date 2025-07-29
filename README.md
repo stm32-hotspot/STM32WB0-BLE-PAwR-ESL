@@ -1,13 +1,28 @@
 # STM32WB09 PAwR/ESL Demo
 
-STM32WB09 PAwR/ESL application demonstrates the PAwR (Periodic Advertising with Response) feature of STM32WB0 Bluetooth stack. With the support of Periodic Advertising with Response, it is possible to have a bidirectional one-to-many communication between a single node and thousands of low-power devices. One of the most innovative applications addressed by this new feature, introduced by Bluetooth Core v5.4, is Electronic Shelf Label. 
+STM32WB09 PAwR/ESL application demonstrates the PAwR (Periodic Advertising with Response) feature of STM32WB0 Bluetooth stack. With the support of
+Periodic Advertising with Response, it is possible to have a bidirectional one-to-many communication between a single node and thousands of
+low-power devices. One of the most innovative applications addressed by this new feature, introduced by Bluetooth Core v5.4, is the Electronic Shelf
+Label. 
 
-This demo implements the Bluetooth ESL profile. Both roles, i.e. *Electronic Shelf Label* (ESL) and *Access Point* (AP) roles are provided. Each ESL is addressed by a Group ID (7-bit value) and an ESL ID (8-bit value). Addresses are assigned by the AP during the configuration phase of the node. In this first version of the Access Point, the BD addresses of the ESL are defined at compile time and Group ID and ESL ID are derived from the two least significant bytes of the public address. A command for ESL provisioning will be added in the future.
+This demo implements the Bluetooth ESL profile. Both roles, i.e. *Electronic Shelf Label* (ESL) and *Access Point* (AP) roles are provided. Each
+ESL is addressed by a Group ID (7-bit value) and an ESL ID (8-bit value). Addresses are assigned by the AP during the configuration phase of the
+node. 
 
-When ESL firmware starts, the device enters advertising state. The Access Point automatically connects to any of the predefined ESLs. Once it gets connected to the ESL, the ESL can receive the Periodic Advertising Synchronization Info so that it can synchronize with the periodic advertising train and disconnect the link. In particular, the device will only synchronize with the PAwR subevent corresponding to the group (e.g. ESL in group 0 is synchronized only with subevents 0).
+The ESL application starts as a simple Peripheral advertising. Once an ESL Access Point (the PAwR broadcaster) connects to the Peripheral ESL, the
+ESL is provisioned with the information required to synchronize with the PAwR train of Access Point. This information consists of ESL address, key
+materials and absolute time. Using the Periodic Advertising Sync Transfer procedure, the ESL can synchronize with the periodic advertising train
+and then disconnect the link. In particular, the device synchronizes only with the PAwR subevent corresponding to the group (e.g. ESL in group 0 is
+synchronized only with subevent 0). Once synchronized with the PAwR train, the ESL device can receive and execute ESL commands.
 
-Commands can be sent by the PAwR broadcaster Access Point. The human interface to the AP is an AT-like command set over UART interface (115200-8-N-1). See dedicated section below for further details.
-Commands can either be unicast, i.e. addressed to a single device, or broadcast if addressed to all the ESLs of a group (ESL ID = 0xFF). Broadcast commands are retransmitted to increase reliability. Unicast commands always have a response from the ESL. If no response is received, a command is automatically retransmitted a limited amount of times, until the response is received from the ESL to confirm the reception of the command.
+Commands can be sent by the Access Point using a AT-like commands over UART interface (115200-8-N-1). See dedicated section below for further 
+details.
+Commands can be either unicast, i.e. addressed to a single device, or broadcast if addressed to all the ESLs of a group (ESL ID = 0xFF).
+Unicast commands always have a response from the ESL. Automatic retransmissions of commands can be enabled by setting BRC_RETRANSMISSIONS and
+UNC_RETRANSMISSIONS macros, used respectively for broadcast and unicast commands.
+
+The ESL can store some images in Flash. Images can be transferred from to the AP using the Object Transfer Profile.
+By default a maximum of three images can be saved. The first image, **"Image 0"**, is a special preloaded, read-only background image that is useful in conjunction with some proprietary commands to set item description and price.
 
 ## Hardware Needed
 
@@ -20,7 +35,7 @@ The AP application can run on:
 
 ### STEVAL-ESL1KCB
 
-Even though this demo can run on Nucleo boards, with a reduced set of commands, it can be run also on a dedicated board, STEVAL-ESL1KCB. This board is an example of a real Electronic Shelf Label, with 1.54-inches e-paper display and NFC tag.
+Even though this demo can run on Nucleo boards with a reduced set of commands, it can be run also on a dedicated board, STEVAL-ESL1KCB. This board is an example of a real Electronic Shelf Label, with 1.54-inches e-paper display and NFC tag.
 
 ![ESL board front](Media/ESL_front_blank.jpg)
 
@@ -53,11 +68,11 @@ These are the main components in the ESL board:
 
 This section describes the steps to set-up and run the demo.
 
-1. Flash ESL boards (either Nucleo-WB09KE or STEVAL-ESL1KCB), with ESL firmware binaries. Each board needs to have its own public address (it can be set through CFG_PUBLIC_BD_ADDRESS macro in app_conf.h). Firmware can be flashed either with IDE or STM32CubeProgrammer.  
-_Note_: if the board was already programmed with a firmware using Deepstop mode, it may be not possible to use SWD interface to program a new firmware. In this case the STM32WB09 device can be forced to enter bootloader mode to make it possible to program a new firmware. On STEVAL-ESL1KCB, bootloader mode can be entered by pressing reset button while keeping user button pressed. On Nucleo-WB09KE the reset button must be pressed after placing a jumper on JP1 in *Bootloader mode* position.
+1. Flash ESL boards (either Nucleo-WB09KE or STEVAL-ESL1KCB), with ESL firmware binaries. Erase all the Flash before downloading, to initialize sectors used to store images. Each board needs to have its own public address (it can be set through CFG_PUBLIC_BD_ADDRESS macro in app_conf.h). Firmware can be flashed either with IDE or STM32CubeProgrammer.  
+*Note: if the board was already programmed with a firmware using Deepstop mode, it may be not possible to use SWD interface to program a new firmware. In this case the STM32WB09 device can be forced to enter bootloader mode to make it possible to program a new firmware. On STEVAL-ESL1KCB, bootloader mode can be entered by pressing reset button while keeping user button pressed. On Nucleo-WB09KE the reset button must be pressed after placing a jumper on JP1 in *Bootloader mode* position.*
 
 2. For the AP on the Nucleo board, compile and flash the firmware with and IDE or use the STM32CubeProgrammer to flash the precompiled binary file.  
-_Note_: if the board was already programmed with a firmware using Deepstop mode, it may be not possible to use SWD interface to program a new firmware. In this case the STM32WB09 device can be forced to enter bootloader mode to make it possible to program a new firmware. On Nucleo-WB09KE, bootloader mode can be entered by pressing reset button while keeping JP1 in *Bootloader mode* position.
+*Note: if the board was already programmed with a firmware using Deepstop mode, it may be not possible to use SWD interface to program a new firmware. In this case the STM32WB09 device can be forced to enter bootloader mode to make it possible to program a new firmware. On Nucleo-WB09KE, bootloader mode can be entered by pressing reset button while keeping JP1 in Bootloader mode position.*
 
 3. Optional: open a terminal to view messages on the COM port associated to the ESL boards (the COM port is provided by the ST-Link). UART settings are:
     - Baud rate 921600 bps
@@ -76,35 +91,47 @@ If you have a terminal opened on the ESL COM port, some messages are printed, sh
     - Stop bits: 1.
 Make sure also to set the terminal to send a CR character after a new line.
 
-6. Reset AP board to see some info on the terminal. The firmware tries automatically to connect to the pre-configured ESL boards to pass PAwR train sync info. Once an ESL received the Synchronization information, it immediately disconnects the link.  
-This is the log on the Access Point after the configuration of an ESL. The assigned ESL address is higlighted by the red arrow. The most significant byte of the ESL address is the Group ID, while the least significant byte is the ESL ID.  
-![AP terminal](Media/terminal_AP.png)  
-Below the log on the ESL after the connection to the AP.
-![ESL terminal](Media/terminal_ESL2.png)  
+6. Reset AP board to see some info on the terminal.
+
+7. Launch *ATE* to enable echo.
+
+8. Launch *AT+SCAN* to discover the ESL to be added to the network: *+SCAN: 0,0280E1AA0000* should be printed on the terminal.
+
+9. Start ESL provisioning, e.g. with *AT+ADD=0,0280e1aa0000,1,2*, where 1 is the group ID and 2 is the ESL ID.
+*Note: an encryption failure may be raised on the AP if the ESL was previously bonded, but it has been reset. The AP will remove the bonding and 
+the ESL must be added again to the network.*
+
+![ESL terminal](Media/terminal_ESL2.png)
+
+10. Once provisioning is completed, ESL disconnects. Commands can be sent on the terminal by specifying the assigned GROUP_ID and ESL_ID to:
+   - ping the board (AT+PING command)
+   - control an LED (AT+LED command)
+   - read some sensor data (AT+SENS command) 
+   - set an image to be displayed (AT+IMG command)
+   
+11. Data can be sent with Object Transfer Profile to provide an image:
+   - Connect to an associated ESL, e.g. with *AT+CONN=1,2*.
+   - Select an image to be written by providing an image name, e.g. *AT+OTPSEARCH=Image 1*.
+   - Open channel to write data with *AT+OTPSTART=0*.
+   - Send data with *AT+OTPWRITE=5000*.
+   - Close channel with AT+OTPCLOSE.
+   - Close connection and put ESL back to synchronized state with *AT+UPDCMP*.
 
 
-7. Insert AT commands on the AP terminal to send commands to ESLs. See section below for a list of supported commands.  
-Type ATE to enable local echo.  
+### Examples
 
-For example, you can:
+Here there is a list of common commands that can be launched on the Access Point. 
+
   - Turn on an LED on ESL with address 1,2 (Group ID 1, ESL ID 2) by typing:  
     *AT+LED=1,2,0,FF,0,0,0,1*
   - Turn off the LED on ESL with address 1,2 with:  
     *AT+LED=1,2,0,FF,0,0,0,0*
   - Read the battery level on ESL 1,2 with:  
     *AT+SENS=1,2,0*
-  - Send a short text, e.g. "Peaches", to be displayed on ESL 1,2 (supported only for STEVAL-ESL1KCB):  
-    *AT+TXT=1,2,Peaches*
-  - Set the price on ESL 1,2 (supported only for STEVAL-ESL1KCB):  
-    *AT+PRICE=1,2,4.95*
-  - Set an icon for discount on ESL 1,2 (supported only for STEVAL-ESL1KCB):  
+  - Display an image on ESL 1,2 (supported only for STEVAL-ESL1KCB):  
     *AT+IMG=1,2,0,1*
   - Turn on the LED on all the ESLs of Group 1 with:  
-    *AT+LED=1,FF,0,FF,0,0,0,1*  
-
-When not synchronized with the Access Point, after a loss of synchronization, the ESL is in low power advertising state. A press to the push button makes the device enter fast advertising for a limited amount of time (90 seconds).
-
-On STEVAL-ESL1KCB, a long press on the button (> 1.5 s) clears the screen (useful to be done before storing the board for a long time to avoid damage to the display).
+    *AT+LED=1,FF,0,FF,0,0,0,1*
 
 ## AT commands
 
@@ -119,6 +146,9 @@ where status is 0 if the response has been received successfully. *status* may b
 Here is the list of supported commands on the Access Point. The presence of \<CR\>\<LF\> is implied. Some of these commands (i.e. the ones which require a display) can only have a real effect when the ESL is an STEVAL-ESL1KCB.
 
 - *ATE*: Enable local echo.
+- *AT+SCAN*: Scan for ESLs
+- *AT+ADD=\<addr_type>,\<address>,\<group_id>,\<esl_id>*: Perform ESL device provisioning
+- *AT+CONN=\<group_id\>,\<esl_id\>*: Connect to an ESL (ESL enters *updating state*). Use AT+UPDCMP to make the ESL disconnect.
 - *AT+PING=\<group_id\>,\<esl_id\>*: Ping.  
   When a response is received from the peer, the following string is given:  
   *+STATE:\<group_id>,\<esl_id>,\<status>,\<state\>*  
@@ -129,13 +159,13 @@ Here is the list of supported commands on the Access Point. The presence of \<CR
 - *AT+SRVRST=\<group_id\>,\<esl_id\>*: Service Reset.  
   When a response is received from the peer, the following string is given:  
   *+STATE:\<group_id>,\<esl_id>,\<status>,\<state\>*  (see AT+PING).
-- *AT+FRST=\<group_id\>,\<esl_id\>*: Factory Reset.  
+- *AT+FRST*: Factory Reset (for the connected ESL).  
    No response is given by the ESL.
-- *AT+UPDCMP=\<group_id\>,\<esl_id\>*: Send and Update Complete command to the connected ESL.
+- *AT+UPDCMP*: Send and Update Complete command to the connected ESL.
 - *AT+SENS=\<group_id\>,\<esl_id\>,\<sensor_index\>*: Read Sensor Data  
   When a response is received from the peer, the following string is given:  
   *+SENS:\<group_id>,\<esl_id>,\<status>,\<sensor_value\>*  
-  In this example, value 0 for \<sensor_index\> is used to read battery voltage (in millivolts)
+  In this example, value 0 for \<sensor_index\> is used to read battery voltage (unit is 1/64 V)
 - *AT+REFRESH=\<group_id\>,\<esl_id\>,\<display_index\>*: Refresh Display.  
   When a response is received from the peer, the following string is given:  
   *+DISP:\<group_id>,\<esl_id>,\<status>,\<display_index\>,\<image_index\>*
@@ -158,21 +188,24 @@ Here is the list of supported commands on the Access Point. The presence of \<CR
 - *AT+PRICE=\<group_id\>,\<esl_id\>,\<price\>*: Set price. This is a proprietary command to set a price on the ESL display.  
   When a response is received from the peer, the following string is given:  
   *+PRICE:\<group_id>,\<esl_id>,\<status>*
-- *AT+RECONF=\<group_id\>,\<esl_id\>,\<new_group_id\>,\<new_esl_id\>*: Reconfigure an ESL with a new address. The AP automatically connects to the ESL to assign a new address.
-- *AT+CONN=\<group_id\>,\<esl_id\>*: Connect to an ESL (ESL enters *updating state*). Use AT+UPDCMP to make the ESL disconnect.
+- *AT+RECONF=\<new_group_id\>,\<new_esl_id\>*: Reconfigure the connected ESL with a new address.
 - *AT+INFO*: Read all the Information Characteristics from the connected ESL.
 - *AT+DISPLAYINFO*: Read the Display Information Characteristic from the connected ESL.
 - *AT+SENSORINFO*: Read the Sensor Information Characteristic from the connected ESL.
 - *AT+LEDINFO*: Read the LED Information Characteristic from the connected ESL.
-- *AT+CLRSCDB*: Delete all bonding information
+- *AT+CLRNVM*: Delete all bonding information
 - *AT+ABSTIME?*: Read current absolute time
+- *AT+OTPSEARCH*: Discover images on the connected server on the ESL
+- *AT+OTPSEARCH=\<name\>*: Search and select the specified image on the connected ESL
+- *AT+OTPMETA*: Read metadata for current object
+- *AT+OTPSTART=\<truncate\>*: Open an L2CAP channel to transfer an image to the connected ESL. Set \<truncate\> to 1 to truncate image, otherwise set it to 0.
+- *AT+OTPWRITE=\<size\>*: Send image data, up to the given size in bytes (maximum is 5000). Data to be sent is stored inside **image.c** file.
+- *AT+OTPCLOSE*: Close L2CAP channel to transfer image data. It should be issued when there are not other images to be sent.
 - *AT+HELP*: List of AT commands.
 
 ## Demo on STEVAL-ESL1KCB
 
-When the firmware on the ESL board starts to run, the display is initialized by showing only a static background, without any text or price.
-
-![ESL board front](Media/ESL_front_init.jpg)
+When the firmware on the ESL board starts to run, no image is displayed.
  
 On the top-right corner, a circle is used to show the current state of the ESL connectivity:
 - No circle: no Bluetooth activity (no advertising, not synchronized with AP).
@@ -180,17 +213,23 @@ On the top-right corner, a circle is used to show the current state of the ESL c
 - Full circle: ESL synchronized with AP.
 
 By launching some ESL commands from Access Point, it is possible to do the following operation on the ESL:
-- Setting a text for a short description of the item (a maximum of 10 characters). Use *AT+TXT* command on the AP.
-- Setting the price of the item (up to 999.99). Use *AT+PRICE* command on the AP.
-- Setting a special icon (e.g. to show a discount). Use *AT+IMG* command on the AP.
 - Activate an LED. Use *AT+LED* command on the AP.
+- Display a previously saved image. Use *AT+IMG* command on the AP.
+- Read the current value of the battery voltage. Use *AT+SENS* command on the AP.
+
+The standard way to change the image displayed on the ESL is to send the image through the Object Transfer Profile. 
+However, this requires a connection to be established between the AP and the ESL. Even if there is only a change in the price or in the text, a new image would be required. An alternative and more efficient way is implemented in BLE_ESL example for ESL1KCB. This method uses a background image and proprietary commands that instruct the ESL to generate an image with modified price and description. To use this method, follow these steps from the AP:
+
+ - send the standard command to display the image at index 0: AT+IMG=\<group_id\>,\<esl_id\>,0,0. A background image without item description and price will be displayed.
+ 
+ ![ESL board front](Media/ESL_front_init.jpg)
+ 
+ - send the proprietary command to set description (a maximum of 10 characters): AT+TXT=\<group_id\>,\<esl_id\>,\<text\>
+ - send the proprietary command to set price (up to 999.99): AT+PRICE=\<group_id\>,\<esl_id\>,\<price\>
+ 
+ ![ESL board front](Media/ESL_front.jpg)
 
 The NFC tag is used to program an URI that is pointing to more product info on a website. The product can be identified by the ESL address (Group ID and ESL ID).
-
-Below an image showing an ESL board with item description and price set.
-
-![ESL board front](Media/ESL_front.jpg)
-
 
 ## Performances
 
@@ -222,10 +261,9 @@ This section only applies to STEVAL-ESL1KCB evaluation kit. This board has an NF
 
 ## Notes
 
-The original PAwR applications from release 1.0.0 (not compliant to the ESL profile) are still provided in the following folders:
-- Projects\\NUCLEO-WB09KE\\Applications\\BLE\\BLE_PAwR_Broadcaster
-- Projects\\NUCLEO-WB09KE\\Applications\\BLE\\BLE_PAwR_Observer
-- Projects\\STEVAL-ESL1KCB\\Applications\\BLE\\BLE_PAwR_Observer
+When not synchronized with the Access Point, after a loss of synchronization, the ESL is in low power advertising state. A press to the push button makes the device enter fast advertising for a limited amount of time (90 seconds).
+
+On STEVAL-ESL1KCB, a long press on the button (> 1.5 s) clears the screen (useful to be done before storing the board for a long time to avoid damage to the display).
 
 ## Troubleshooting
 

@@ -25,6 +25,7 @@
 #include "esl_app.h"
 #include "ble_evt.h"
 #include "esl_device.h" 
+#include "ots.h"
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
@@ -42,10 +43,16 @@ typedef struct{
   uint16_t  ESL_Resp_Key_Material_CharHdl;		/**< ESL Response Key Material Characteristic Handle */
   uint16_t  ESL_Curr_Abs_Time_CharHdl;			/**< ESL Current Absolute Time Characteristic Handle */
   uint16_t  ESL_Control_Point_CharHdl;			/**< ESL Control Point Characteristic Handle */
+#if NUM_DISPLAYS
   uint16_t  ESL_Display_InformationHdl;                 /**< ESL Display Information Handle */
-  uint16_t  ESL_Image_InformationHdl;                   /**< ESL Image Information Handle */  
+  uint16_t  ESL_Image_InformationHdl;                   /**< ESL Image Information Handle */
+#endif
+#if NUM_SENSORS
   uint16_t  ESL_Sensor_InformationHdl;                  /**< ESL Sensor Information Handle */
+#endif
+#if NUM_LEDS
   uint16_t  ESL_LED_InformationHdl;                     /**< ESL LED Information Handle */
+#endif
 
 /* USER CODE BEGIN Context */
   /* Place holder for Characteristic Descriptors Handle*/
@@ -76,6 +83,7 @@ typedef struct{
 #define ESL_CONTROL_POINT_SIZE                              17
 #define ESL_SENSOR_INFO_SIZE                                5
 #define ESL_LED_INFO_SIZE                                   1
+
 /* USER CODE BEGIN PM */
 
 /* USER CODE END PM */
@@ -86,28 +94,11 @@ static ESL_SERVICE_Context_t ESL_SERVICE_Context;
 
 /* USER CODE BEGIN PV */
 
-/* The ESL Display Information characteristic value consists of an array of one or more Display Data:
-    - Width (uint16) = 0x00C8  (200 pixels)
-    - Height (uint16) = 0x00C8 (200 pixels)
-    - Display_Type (uint8) = 0x01 (black white) */
-uint8_t ESL_Display_Info[5] = {0xC8, 0x00, 0xC8, 0x00, 0x01};
-
+#if NUM_DISPLAYS
 /* The ESL Image Information characteristic contains a single field, called Max_Image_Index, 
    whose value is a 8-bit integer (uint8) in the range 0x00 to 0xFF. */
-uint8_t ESL_Image_Info = MAX_NUM_IMAGE - 1; 
-
-/* ESL Sensor Information Characteristic fields values fo one sensor (battery):
-   - Size = 0x01
-   - Sensor_Type: Sensor_Code = 0x0090, Company_ID = 0x0030  
-   [NOTE: In PTS ==> TSPX_sensor_size_array = 1 - TSPX_sensor_type_array = 9437232	(0x00900030) ]*/
-uint8_t ESL_Sensor_info[5] = {0x01, (BATT_SENSOR_ID & 0xFF), (BATT_SENSOR_ID >> 8), (ST_COMPANY_ID & 0xFF), (ST_COMPANY_ID >> 8)};
-
-/* The ESL LED Information characteristic is an array of one or more octets in 
-   which each octet represents an LED that is supported by the ESL.
-   1 monochrome LED:
-    - index 0: orange 0b01011011 = 0x5B
-      */ 
-uint8_t ESL_LED_info[1] = {0x5B};
+uint8_t ESL_Image_Info = NUM_IMAGES - 1;
+#endif
 
 /* USER CODE END PV */
 
@@ -187,6 +178,7 @@ static const ble_gatt_chr_def_t esl_service_chars[] = {
         },
         .val_buffer_p = &esl_control_point_val_buffer_def
     },
+#if NUM_DISPLAYS
     {
         .properties = BLE_GATT_SRV_CHAR_PROP_READ,
         .permissions = BLE_GATT_SRV_PERM_ENCRY_READ,
@@ -199,24 +191,35 @@ static const ble_gatt_chr_def_t esl_service_chars[] = {
         .min_key_size = 0x10,
         .uuid = BLE_UUID_INIT_16(ESL_IMAGE_INFO_UUID),
     },
+#endif
+#if NUM_SENSORS
     {
         .properties = BLE_GATT_SRV_CHAR_PROP_READ,
         .permissions = BLE_GATT_SRV_PERM_ENCRY_READ,
         .min_key_size = 0x10,
         .uuid = BLE_UUID_INIT_16(ESL_SENSOR_INFO_UUID),
-    },    
+    },
+#endif
+#if NUM_LEDS
     {
         .properties = BLE_GATT_SRV_CHAR_PROP_READ,
         .permissions = BLE_GATT_SRV_PERM_ENCRY_READ,
         .min_key_size = 0x10,
         .uuid = BLE_UUID_INIT_16(ESL_LED_INFO_UUID),
-    },      
+    }, 
+#endif
 };
+
+ble_gatt_srv_def_t *included_services[] = {&ots_service_def};
 
 /* ESL service definition */
 static const ble_gatt_srv_def_t esl = {
    .type = BLE_GATT_SRV_PRIMARY_SRV_TYPE,
    .uuid = BLE_UUID_INIT_16(ESL_SERVICE_UUID),
+   .included_srv = {
+     .incl_srv_count = 1,
+     .included_srv_pp = included_services,
+   },
    .chrs = {
        .chrs_p = (ble_gatt_chr_def_t *)esl_service_chars,
        .chr_count = sizeof(esl_service_chars)/sizeof(ble_gatt_chr_def_t),
@@ -239,7 +242,6 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
   aci_gatt_srv_write_event_rp0   *p_write;
   aci_gatt_srv_read_event_rp0    *p_read;  
   aci_att_srv_prepare_write_req_event_rp0 *p_prepare_write;
-  ESL_SERVICE_NotificationEvt_t notification;
   /* USER CODE BEGIN Service1_EventHandler_1 */
 
   /* USER CODE END Service1_EventHandler_1 */
@@ -250,12 +252,7 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
     {
       /* USER CODE BEGIN EVT_BLUE_GATT_ATTRIBUTE_MODIFIED_BEGIN */
       p_attribute_modified = (aci_gatt_srv_attribute_modified_event_rp0*)p_evt->data;
-      notification.ConnectionHandle         = p_attribute_modified->Connection_Handle;
-      notification.AttributeHandle          = p_attribute_modified->Attr_Handle;
-      notification.DataTransfered.Length    = p_attribute_modified->Attr_Data_Length;
-      notification.DataTransfered.p_Payload = p_attribute_modified->Attr_Data;
       /* USER CODE END EVT_BLUE_GATT_ATTRIBUTE_MODIFIED_BEGIN */
-      UNUSED(notification);
       p_attribute_modified = (aci_gatt_srv_attribute_modified_event_rp0*)p_evt->data;
       
       if(p_attribute_modified->Attr_Handle == (ESL_SERVICE_Context.ESL_Control_Point_CharHdl  + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
@@ -264,12 +261,9 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
         
         /* USER CODE BEGIN Service1_Char_5_ACI_GATT_SRV_ATTRIBUTE_MODIFIED_VSEVT_CODE */
         APP_DBG_MSG("Write on ECP\n"); 
-        ESL_ControlPoint_received(p_attribute_modified->Attr_Data, p_attribute_modified->Attr_Data_Length);
+        ESL_APP_ControlPointReceived(p_attribute_modified->Attr_Data, p_attribute_modified->Attr_Data_Length);
         
-        //TBR???
-        notification.EvtOpcode = ESL_SERVICE_CONTROL_POINT_WRITE_EVT;
         /* USER CODE END Service1_Char_5_ACI_GATT_SRV_ATTRIBUTE_MODIFIED_VSEVT_CODE */
-        ESL_SERVICE_Notification(&notification);
       }
       else if(p_attribute_modified->Attr_Handle == (ESL_SERVICE_Context.ESL_Control_Point_CharHdl  + CHARACTERISTIC_DESCRIPTOR_ATTRIBUTE_OFFSET))
       {
@@ -288,8 +282,7 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
           /* USER CODE BEGIN Service1_Char_5_Disabled_BEGIN */
           APP_DBG_MSG("ACI_GATT_SRV_ATTRIBUTE_MODIFIED_VSEVT_CODE ESL_SERVICE_CONTROL_POINT_NOTIFY_DISABLED_EVT\n");
           /* USER CODE END Service1_Char_5_Disabled_BEGIN */
-          notification.EvtOpcode = ESL_SERVICE_CONTROL_POINT_NOTIFY_DISABLED_EVT;
-          ESL_SERVICE_Notification(&notification);
+          
           /* USER CODE BEGIN Service1_Char_5_Disabled_END */
           
           /* USER CODE END Service1_Char_5_Disabled_END */
@@ -300,8 +293,7 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
           /* USER CODE BEGIN Service1_Char_5_COMSVC_Notification_BEGIN */
           APP_DBG_MSG("ACI_GATT_SRV_ATTRIBUTE_MODIFIED_VSEVT_CODE ESL_SERVICE_CONTROL_POINT_NOTIFY_ENABLED_EVT\n");
           /* USER CODE END Service1_Char_5_COMSVC_Notification_BEGIN */
-          notification.EvtOpcode = ESL_SERVICE_CONTROL_POINT_NOTIFY_ENABLED_EVT;
-          ESL_SERVICE_Notification(&notification);
+          
           /* USER CODE BEGIN Service1_Char_5_COMSVC_Notification_END */
 
           /* USER CODE END Service1_Char_5_COMSVC_Notification_END */          
@@ -327,6 +319,7 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
       
       /* USER CODE END EVT_BLUE_GATT_SRV_READ_BEGIN */
       p_read = (aci_gatt_srv_read_event_rp0*)p_evt->data;
+#if NUM_DISPLAYS
       if(p_read->Attribute_Handle == (ESL_SERVICE_Context.ESL_Display_InformationHdl + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
       {
           return_value = BLEEVT_Ack;
@@ -359,7 +352,9 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
 
           /*USER CODE END Service1_Char_7_ACI_GATT_SRV_READ_VSEVT_CODE_2 */
       } /* if(p_read->Attribute_Handle == (ESL_SERVICE_Context.ESL_Image_InformationHdl + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
+#endif
       /* USER CODE BEGIN EVT_BLUE_GATT_SRV_READ_END */
+#if NUM_SENSORS
       if(p_read->Attribute_Handle == (ESL_SERVICE_Context.ESL_Sensor_InformationHdl + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
       {
           return_value = BLEEVT_Ack;
@@ -376,6 +371,8 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
 
           /*USER CODE END Service1_Char_8_ACI_GATT_SRV_READ_VSEVT_CODE_2 */
       } /* if(p_read->Attribute_Handle == (ESL_SERVICE_Context.ESL_Sensor_InformationHdl + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
+#endif
+#if NUM_LEDS
       if(p_read->Attribute_Handle == (ESL_SERVICE_Context.ESL_LED_InformationHdl + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
       {
           return_value = BLEEVT_Ack;
@@ -392,6 +389,7 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
 
           /*USER CODE END Service1_Char_9_ACI_GATT_SRV_READ_VSEVT_CODE_2 */
       } /* if(p_read->Attribute_Handle == (ESL_SERVICE_Context.ESL_LED_InformationHdl + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
+#endif
       /* USER CODE END EVT_EVT_BLUE_GATT_SRV_READ_END */
       break;/* ACI_GATT_SRV_READ_VSEVT_CODE */      
     }
@@ -494,10 +492,12 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
     }
     
     case ACI_ATT_SRV_PREPARE_WRITE_REQ_VSEVT_CODE:
-    {
+    {      
       p_prepare_write = (aci_att_srv_prepare_write_req_event_rp0*)p_evt->data;
       /* USER CODE BEGIN EVT_BLUE_SRV_GATT_BEGIN */
-      uint8_t att_error = BLE_ATT_ERR_PREP_QUEUE_FULL;
+      return_value = BLEEVT_Ack;
+      
+      uint8_t att_error = BLE_ATT_ERR_REQ_NOT_SUPP;
       /* USER CODE END EVT_BLUE_SRV_GATT_BEGIN */
       
       aci_gatt_srv_resp(p_prepare_write->Connection_Handle,
@@ -577,6 +577,7 @@ static BLEEVT_EvtAckStatus_t ESL_SERVICE_EventHandler(aci_blecore_event *p_evt)
 void ESL_SERVICE_Init(void)
 {
   tBleStatus ret = BLE_STATUS_INVALID_PARAMS;
+  uint8_t charac_index = 0;
   UNUSED(ESL_SERVICE_Context);
 
   /* USER CODE BEGIN InitService1Svc_1 */
@@ -601,88 +602,26 @@ void ESL_SERVICE_Init(void)
   }
 
   ESL_SERVICE_Context.ESL_SvcHdl = aci_gatt_srv_get_service_handle((ble_gatt_srv_def_t *) &esl);
-  ESL_SERVICE_Context.ESL_Address_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[0]);
-  ESL_SERVICE_Context.AP_Sync_Key_Material_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[1]);
-  ESL_SERVICE_Context.ESL_Resp_Key_Material_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[2]);
-  ESL_SERVICE_Context.ESL_Curr_Abs_Time_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[3]);
-  ESL_SERVICE_Context.ESL_Control_Point_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[4]);
-  ESL_SERVICE_Context.ESL_Display_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[5]);
-  ESL_SERVICE_Context.ESL_Image_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[6]);
-  ESL_SERVICE_Context.ESL_Sensor_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[7]);
-  ESL_SERVICE_Context.ESL_LED_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[8]);
+  ESL_SERVICE_Context.ESL_Address_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+  ESL_SERVICE_Context.AP_Sync_Key_Material_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+  ESL_SERVICE_Context.ESL_Resp_Key_Material_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+  ESL_SERVICE_Context.ESL_Curr_Abs_Time_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+  ESL_SERVICE_Context.ESL_Control_Point_CharHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+#if NUM_DISPLAYS
+  ESL_SERVICE_Context.ESL_Display_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+  ESL_SERVICE_Context.ESL_Image_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+#endif
+#if NUM_SENSORS
+  ESL_SERVICE_Context.ESL_Sensor_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+#endif
+#if NUM_LEDS
+  ESL_SERVICE_Context.ESL_LED_InformationHdl = aci_gatt_srv_get_char_decl_handle((ble_gatt_chr_def_t *)&esl_service_chars[charac_index++]);
+#endif
   /* USER CODE BEGIN InitService1Svc_2 */
 
   /* USER CODE END InitService1Svc_2 */
 
   return;
-}
-
-/**
- * @brief  Characteristic update
- * @param  CharOpcode: Characteristic identifier
- * @param  pData: pointer to the new data to be written in the characteristic
- *
- */
-tBleStatus ESL_SERVICE_UpdateValue(ESL_SERVICE_CharOpcode_t CharOpcode, ESL_SERVICE_Data_t *pData)
-{
-  tBleStatus ret = BLE_STATUS_SUCCESS;
-
-  /* USER CODE BEGIN Service1_App_Update_Char_1 */
-
-  /* USER CODE END Service1_App_Update_Char_1 */
-  
-  switch(CharOpcode)
-  {
-    case ESL_SERVICE_ADDR:
-      /* USER CODE BEGIN Service1_Char_Value_1*/
-
-      /* USER CODE END Service1_Char_Value_1*/
-      break;
-
-    case ESL_SERVICE_SYNC_KEY_MATERIAL:
-      /* USER CODE BEGIN Service1_Char_Value_2*/
-
-      /* USER CODE END Service1_Char_Value_2*/
-      break;
-
-    case ESL_SERVICE_RESP_KEY_MATERIAL:
-      /* USER CODE BEGIN Service1_Char_Value_3*/
-
-      /* USER CODE END Service1_Char_Value_3*/
-      break;
-
-    case ESL_SERVICE_CURR_ABS_TIME:
-      /* USER CODE BEGIN Service1_Char_Value_4*/
-
-      /* USER CODE END Service1_Char_Value_4*/
-      break;
-
-    case ESL_SERVICE_CONTROL_POINT:
-      memcpy(esl_control_point_val_buffer, pData->p_Payload, MIN(pData->Length, sizeof(esl_control_point_val_buffer)));
-      /* USER CODE BEGIN Service1_Char_Value_5*/
-
-      /* USER CODE END Service1_Char_Value_5*/
-      break;
-      
-    case ESL_SERVICE_SENSOR_INFO:
-      /* USER CODE BEGIN Service1_Char_Value_5*/
-
-      /* USER CODE END Service1_Char_Value_5*/
-      break;     
-    case ESL_SERVICE_LED_INFO:
-      /* USER CODE BEGIN Service1_Char_Value_5*/
-
-      /* USER CODE END Service1_Char_Value_5*/
-      break;        
-    default:
-      break;
-  }
-
-  /* USER CODE BEGIN Service1_App_Update_Char_2 */
-
-  /* USER CODE END Service1_App_Update_Char_2 */
-
-  return ret;
 }
 
 /**

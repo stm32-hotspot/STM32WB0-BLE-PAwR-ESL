@@ -262,7 +262,11 @@ void DIS_Init(void)
   /**
    *  Register the event handler to the BLE controller
    */
-  BLEEVT_RegisterGattEvtHandler(DIS_EventHandler);
+  if(BLEEVT_RegisterGattEvtHandler(DIS_EventHandler) != BLE_STATUS_SUCCESS)
+  {
+    APP_DBG_MSG("  Fail registering DIS handlers\n");
+    return;
+  }
 
   ret = aci_gatt_srv_add_service((ble_gatt_srv_def_t *)&dis_service);
 
@@ -281,11 +285,6 @@ void DIS_Init(void)
   /* USER CODE BEGIN InitService1Svc_2 */
   
   /* USER CODE END InitService1Svc_2 */
-
-  if (ret != BLE_STATUS_SUCCESS)
-  {
-    APP_DBG_MSG("  Fail registering DIS handlers\n");
-  }
 
   return;
 }

@@ -92,7 +92,7 @@
 /**
  * Appearance of device set into BLE GAP
  */
-#define CFG_GAP_APPEARANCE                  (GAP_APPEARANCE_UNKNOWN)
+#define CFG_GAP_APPEARANCE                  (GAP_APPEARANCE_GENERIC_TAG)
 
 /* USER CODE BEGIN Generic_Parameters */
 
@@ -120,7 +120,7 @@
  * Maximum number of attributes that can be stored in the GATT database in addition to the attributes number already defined for the GATT and GAP services
  * (BLE_STACK_NUM_GATT_MANDATORY_ATTRIBUTES value on STM32_BLE middleware, ble_stack.h header file).
  */
-#define CFG_BLE_NUM_GATT_ATTRIBUTES                     (19)
+#define CFG_BLE_NUM_GATT_ATTRIBUTES                     (38)
 
 /**
  * Maximum number of concurrent Client's Procedures. This value must be less
@@ -144,7 +144,7 @@
  */
 #if CFG_LSCLK_LSE
 /* Change this value according to accuracy of low speed crystal (ppm). */
-#define CFG_BLE_SLEEP_CLOCK_ACCURACY                    (100)
+#define CFG_BLE_SLEEP_CLOCK_ACCURACY                    (50)
 #else
 /* This value should be kept to 500 ppm when using LSI. */
 #define CFG_BLE_SLEEP_CLOCK_ACCURACY                    (500)
@@ -325,7 +325,7 @@
 #define CFG_BLE_CONTROLLER_DATA_LENGTH_EXTENSION_ENABLED  (1U)
 #define CFG_BLE_CONTROLLER_2M_CODED_PHY_ENABLED           (1U)
 #define CFG_BLE_CONTROLLER_EXT_ADV_SCAN_ENABLED           (1U)
-#define CFG_BLE_L2CAP_COS_ENABLED                         (0U)
+#define CFG_BLE_L2CAP_COS_ENABLED                         (1U)
 #define CFG_BLE_CONTROLLER_PERIODIC_ADV_ENABLED           (1U)
 #define CFG_BLE_CONTROLLER_PERIODIC_ADV_WR_ENABLED        (1U)
 #define CFG_BLE_CONTROLLER_CTE_ENABLED                    (0U)

@@ -33,27 +33,6 @@ extern "C" {
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
-typedef enum
-{
-  ESL_CONN_HANDLE_EVT,
-  ESL_DISCON_HANDLE_EVT,
-
-  /* USER CODE BEGIN Service1_OpcodeNotificationEvt_t */
-
-  /* USER CODE END Service1_OpcodeNotificationEvt_t */
-
-  ESL_LAST_EVT,
-} ESL_APP_OpcodeNotificationEvt_t;
-
-typedef struct
-{
-  ESL_APP_OpcodeNotificationEvt_t          EvtOpcode;
-  uint16_t                                 ConnectionHandle;
-
-  /* USER CODE BEGIN ESL_APP_ConnHandleNotEvt_t */
-
-  /* USER CODE END ESL_APP_ConnHandleNotEvt_t */
-} ESL_APP_ConnHandleNotEvt_t;
 
 /* USER CODE BEGIN ET */
 typedef enum
@@ -64,6 +43,13 @@ typedef enum
   ESL_STATE_UPDATING,
   ESL_STATE_UNSYNCHRONIZED,
 } ESL_APP_State_t;
+
+typedef enum
+{
+  ESL_LED_INACTIVE,
+  ESL_LED_ACTIVE,
+} ESL_APP_LEDState_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -90,8 +76,6 @@ typedef enum
 #define BASIC_STATE_PENDING_LED_UPDATE_BIT      (0x08)
 #define BASIC_STATE_PENDING_DISPLAY_UPDATE_BIT  (0x10)
 
-#define DISPLAY         (0X01)  /* IF DISPLAY == 0X00 then hide all the Display command */   
-
 /* USER CODE END EC */
 
 /* External variables --------------------------------------------------------*/
@@ -106,10 +90,8 @@ typedef enum
 
 /* Exported functions ------------------------------------------------------- */
 void ESL_APP_Init(void);
-void ESL_APP_EvtRx(ESL_APP_ConnHandleNotEvt_t *p_Notification);
 /* USER CODE BEGIN EF */
-void ESL_APP_Init(void);
-void ESL_APP_ConnectionComplete(uint16_t connection_handle);
+void ESL_APP_ConnectionComplete(uint16_t connection_handle, uint16_t sync_handle, uint8_t Peer_Address_Type, uint8_t Peer_Address[6]);
 void ESL_APP_PairingComplete(uint16_t connection_handle);
 void ESL_APP_DisconnectionComplete(uint16_t connection_handle);
 void ESL_APP_SyncLost(void);
@@ -119,24 +101,17 @@ uint8_t ESL_APP_SetESLAddress(uint16_t address);
 void ESL_APP_SetAPSyncKeyMaterial(uint8_t key_material[24]);
 void ESL_APP_SetESLResponseKeyMaterial(uint8_t key_material[24]);
 void ESL_APP_SetCurrentAbsoluteTime(uint32_t curr_absolute_time);
-void ESL_ControlPoint_received(uint8_t *p_cmd, uint8_t size);
-
+void ESL_APP_ControlPointReceived(uint8_t *p_cmd, uint8_t size);
 uint8_t ESL_APP_ConfiguringOrUpdatingState(void);
-void ESL_APP_Updating_State_Transition(uint16_t sync_handle);
-void ESL_APP_pairing_request(uint16_t connHandle);
-uint8_t ESL_APP_Get_ESL_State(void);
+void ESL_APP_PairingRequest(uint16_t connHandle);
 int ESL_APP_GetAddress(uint8_t *group_id_p, uint8_t *esl_id_p);
-uint16_t ESL_APP_Get_Basic_State_Bitmap(void);
-uint8_t ESL_APP_Set_Basic_State_Bitmap(uint8_t basic_resp_bit);
-void ESL_APP_Unset_Basic_State_Bitmap(uint8_t basic_resp_bit);
+uint8_t ESL_APP_SetBasicStateBitmap(uint8_t basic_resp_bit);
+void ESL_APP_ResetBasicStateBitmap(uint8_t basic_resp_bit);
 void ESL_APP_UnassociatedFromAPCmd(void);
-void ESL_APP_FactoryResetCmd(void);
+void ESL_APP_SetLEDState(uint8_t index, ESL_APP_LEDState_t led_state);
+void ESL_APP_CmdProcessRequestCB(void);
+void ESL_APP_CmdProcess(void);
 
-void ESL_APP_CMD_ProcessRequestCB(void);
-void ESL_APP_cmd_process(void);
-
-bool get_Service_Needed_State(void);
-void set_Service_Needed_State(bool bvalue);
 /* USER CODE END EF */
 
 #ifdef __cplusplus

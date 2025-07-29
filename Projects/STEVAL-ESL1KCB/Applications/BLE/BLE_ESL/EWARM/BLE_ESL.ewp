@@ -1181,25 +1181,16 @@
                             </file>
                         </group>
                         <file>
+                            <name>$PROJ_DIR$\..\STM32_BLE\App\display\background.c</name>
+                        </file>
+                        <file>
                             <name>$PROJ_DIR$\..\STM32_BLE\App\display\Config\DEV_Config.c</name>
                         </file>
                         <file>
                             <name>$PROJ_DIR$\..\STM32_BLE\App\display\e-Paper\EPD_1in54_V2.c</name>
                         </file>
                         <file>
-                            <name>$PROJ_DIR$\..\STM32_BLE\App\display\euro_symbol_30.c</name>
-                        </file>
-                        <file>
                             <name>$PROJ_DIR$\..\STM32_BLE\App\display\GUI\GUI_Paint.c</name>
-                        </file>
-                        <file>
-                            <name>$PROJ_DIR$\..\STM32_BLE\App\display\sale_tag_70x69.c</name>
-                        </file>
-                        <file>
-                            <name>$PROJ_DIR$\..\STM32_BLE\App\display\st_logo_80x47.c</name>
-                        </file>
-                        <file>
-                            <name>$PROJ_DIR$\..\STM32_BLE\App\display\star_70x64.c</name>
                         </file>
                     </group>
                     <file>
@@ -1222,6 +1213,15 @@
                     </file>
                     <file>
                         <name>$PROJ_DIR$\..\STM32_BLE\App\esl_display.c</name>
+                    </file>
+                    <file>
+                        <name>$PROJ_DIR$\..\STM32_BLE\App\led_flash.c</name>
+                    </file>
+                    <file>
+                        <name>$PROJ_DIR$\..\STM32_BLE\App\ots.c</name>
+                    </file>
+                    <file>
+                        <name>$PROJ_DIR$\..\STM32_BLE\App\ots_app.c</name>
                     </file>
                     <file>
                         <name>$PROJ_DIR$\..\STM32_BLE\App\time_ref.c</name>

@@ -10,7 +10,7 @@
       <TargetName>BLE_ESL_AP</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
+      <pCCUsed>6210000::V6.21::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -485,6 +485,16 @@
               <FileName>uart_cmd.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\STM32_BLE\App\uart_cmd.c</FilePath>
+            </File>
+            <File>
+              <FileName>otp_client.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\otp_client.c</FilePath>
+            </File>
+            <File>
+              <FileName>image.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\image.c</FilePath>
             </File>
           </Files>
         </Group>

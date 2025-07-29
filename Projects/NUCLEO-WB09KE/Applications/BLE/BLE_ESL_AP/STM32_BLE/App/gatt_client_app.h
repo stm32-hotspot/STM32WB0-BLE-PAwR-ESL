@@ -30,6 +30,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ble.h"
+#include <stdbool.h>
 #include "stm_list.h"
 /* USER CODE END Includes */
 
@@ -80,57 +82,12 @@ typedef struct
 
 /* USER CODE BEGIN ET */
 
-typedef enum
-{
-  ESL_STATE_UNASSOCIATED,
-  ESL_STATE_CONFIGURING,
-  ESL_STATE_SYNCHRONIZED,
-  ESL_STATE_UPDATING,
-  ESL_STATE_UNSYNCHRONIZED,
-  
-} ESL_PROFILE_State_t;
-
-typedef struct
-{
-  uint8_t Session_Key[16];
-  uint8_t IV[8];
-}ESL_PROFILE_KeyMaterial_t;
-
-typedef struct ESL_Profile_Context_t_s {
-  
-  uint16_t Conn_Handle;
-  uint8_t Peer_Address[6];
-  uint8_t Peer_Address_Type;
-  
-  /* State of ESL bonded to AP */
-  ESL_PROFILE_State_t state;
-  
-  /** ESL Address characteristic
-   *  Values:
-   *  - ESL_ID: 8 bits value (from 0 to 7)
-   *  - Group_ID: 7 bits value (from 8 to 14)
-   *  - RFU: 1 bit (15)
-   */
-  uint16_t esl_address;
-  
-  /** ESL Response Key Material characteristic
-   */  
-  ESL_PROFILE_KeyMaterial_t esl_resp_key_material;
-  //index of esl_config_values element associated to this ESL 
-  uint8_t index_esl;
-
-} ESL_Profile_Context_t;
-
-/* If ESL is on Configuring state, AP may configure the ESL by writing new values 
-   to the writable characteristics. This array contains characteristics values */
-typedef struct {
-  tListNode esl_queue;
-  ESL_Profile_Context_t esl_info;
-} esl_bonded_t;
-
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
+
+#define CFG_BLE_NUM_CLIENT_CONTEXTS                                         1
+
 /* USER CODE BEGIN EC */
 #define ESL_SERVICE_UUID                                                (0x1857)
 #define ESL_ADDRESS_UUID                                                (0x2BF6)
@@ -143,11 +100,30 @@ typedef struct {
 #define ESL_SENSOR_INFO_UUID                                            (0x2BFC)
 #define ESL_LED_INFO_UUID                                               (0x2BFD)
 
+#define OBJECT_TRANSFER_SERVICE_UUID                                    (0x1825)
+#define OTS_FEATURE_UUID                                                (0x2ABD)
+#define OBJECT_NAME_UUID                                                (0x2ABE)
+#define OBJECT_TYPE_UUID                                                (0x2ABF)
+#define OBJECT_SIZE_UUID                                                (0x2AC0)
+#define OBJECT_FIRST_CREATED_UUID                                       (0x2AC1)
+#define OBJECT_LAST_MODIFIED_UUID                                       (0x2AC2)
+#define OBJECT_ID_UUID                                                  (0x2AC3)
+#define OBJECT_PROPERTIES_UUID                                          (0x2AC4)
+#define OBJECT_ACTION_CONTROL_POINT_UUID                                (0x2AC5)
+#define OBJECT_LIST_CONTROL_POINT_UUID                                  (0x2AC6)
+#define OBJECT_LIST_FILTER_POINT_UUID                                   (0x2AC7)
+#define OBJECT_CHANGED_UUID                                             (0x2AC8)
+     
+#define DEVICE_INFORMATION_SERVICE_UUID                                 (0x180A)
+#define PNPID_UUID                                                      (0x2A50)
+
+#define CFG_MAX_NUM_CONNECTED_SERVERS                                          1
+
 /* USER CODE END EC */
 
 /* External variables --------------------------------------------------------*/
 /* USER CODE BEGIN EV */
-extern ESL_PROFILE_KeyMaterial_t ap_sync_key_material_config_value;
+
 /* USER CODE END EV */
 
 /* Exported macros ------------------------------------------------------------*/
@@ -157,40 +133,21 @@ extern ESL_PROFILE_KeyMaterial_t ap_sync_key_material_config_value;
 
 /* Exported functions ---------------------------------------------*/
 void GATT_CLIENT_APP_Init(void);
-uint8_t GATT_CLIENT_APP_Procedure_Gatt(uint8_t index, ProcGattId_t GattProcId);
 void GATT_CLIENT_APP_Notification(GATT_CLIENT_APP_ConnHandle_Notif_evt_t *p_Notif);
-uint8_t GATT_CLIENT_APP_Set_Conn_Handle(uint8_t index, uint16_t connHdle);
-uint8_t GATT_CLIENT_APP_Get_State(uint8_t index);
-void GATT_CLIENT_APP_Discover_services(uint8_t index);
+uint8_t GATT_CLIENT_APP_GetState(uint8_t index);
+void GATT_CLIENT_APP_DiscoverServices(uint8_t index);
 /* USER CODE BEGIN EFP */
-void ESL_AP_List_Init(void);
-bool ESL_AP_Insert_ESL_In_List(uint16_t Conn_Handle, uint8_t Peer_Address[6], uint8_t Peer_Address_Type, uint16_t esl_address);
-void ESL_AP_Remove_ESL_from_List(esl_bonded_t * esl_node);
-esl_bonded_t* Search_by_Peer_address_In_List(uint8_t Peer_Address[6], uint8_t Peer_Address_Type);
-esl_bonded_t* Search_by_ESL_address_In_List(uint16_t esl_address);
-esl_bonded_t* Search_by_Conn_Handle_In_List(uint16_t conn_handle);
-void display_all_ESL_bonded(tListNode *head);
-void Update_Info_to_ESL_queue(esl_bonded_t* esl_node, ESL_Profile_Context_t new_info, ESL_PROFILE_KeyMaterial_t new_ap_sync_key_material);
-uint16_t ESL_AP_return_ESL_address(uint8_t group_id, uint8_t esl_id);
-esl_bonded_t* ESL_AP_return_ESL_bonded(uint8_t group_id, uint8_t esl_id);
+uint8_t GATT_CLIENT_APP_ConfigureESL(void);
+uint8_t GATT_CLIENT_APP_WriteECP(uint8_t* cmd, uint8_t len_cmd, bool bResponse);
+uint8_t GATT_CLIENT_APP_ReadAllInfo(void);
+uint8_t GATT_CLIENT_APP_ReadDisplayInfo(void);
+uint8_t GATT_CLIENT_APP_ReadImageInfo(void);
+uint8_t GATT_CLIENT_APP_ReadSensorInfo(void);
+uint8_t GATT_CLIENT_APP_ReadLedInfo(void);
+uint8_t GATT_CLIENT_APP_ReadPnPID(void);
 
-uint8_t ESL_AP_write_ECP(uint8_t* cmd, uint8_t len_cmd, uint16_t* conn_handle);
-uint8_t ESL_AP_send_Update_Complete_cmd(uint16_t esl_address);
-esl_bonded_t* ESL_AP_return_ESL_to_Update(void);
-void set_ECP_Failed(bool bValue);
-void ESL_APP_DisconnectionComplete(uint16_t conn_handle);
-void ESL_APP_ReconnectionStateTransition(uint8_t Peer_Address[6], uint8_t Peer_Address_Type);
-
-uint8_t ESL_APP_Read_All_Info_Chars(void);
-uint8_t ESL_APP_Read_Info_Char(uint16_t ValueHdl);
-
-uint8_t ESL_APP_Read_Display_Info_Chars(void);
-uint8_t ESL_APP_Read_Image_Info_Chars(void);
-uint8_t ESL_APP_Read_Sensor_Info_Chars(void);
-uint8_t ESL_APP_Read_Led_Info_Chars(void);
-uint8_t ESL_APP_Clear_Security_DB(void);
-
-void gatt_connection_complete(void);
+tBleStatus GATT_CLIENT_APP_ReadChar(uint16_t ValueHdl, uint8_t **data_p, uint16_t *data_length_p);
+tBleStatus GATT_CLIENT_APP_WriteChar(uint16_t ValueHdl, uint8_t *data, uint16_t data_length);
 /* USER CODE END EFP */
 
 #ifdef __cplusplus

@@ -24,7 +24,7 @@
 
 #define MAX_ABS_TIME                        0xFFFFFFFF
 
-/* This is the time after which a snapshot is taken of current system time and current absolut time. */
+/* This is the time after which a snapshot is taken of current system time and current absolute time. */
 #define TIME_REF_UPATE_INTERVAL_MS   (MAX_ABS_TIME - 60000)
 
 typedef struct
@@ -58,7 +58,7 @@ static void update_ref_time(void)
   
   current_sys_time = HAL_RADIO_TIMER_GetCurrentSysTime();
   
-  /* Calulate time in milliseconds from reference time. */
+  /* Calculate time in milliseconds from reference time. */
   time_diff_ms = HAL_RADIO_TIMER_DiffSysTimeMs(current_sys_time, context.sys_time);
   
   /* Add the absolute time in milliseconds at the reference time */  
@@ -76,7 +76,7 @@ uint32_t TIMEREF_GetCurrentAbsTime(void)
   
   current_sys_time = HAL_RADIO_TIMER_GetCurrentSysTime();
   
-  /* Calulate time in milliseconds from reference time. */
+  /* Calculate time in milliseconds from reference time. */
   time_diff_ms = HAL_RADIO_TIMER_DiffSysTimeMs(current_sys_time, context.sys_time);
   
   /* Add the absolute time in milliseconds taken at the reference time */  

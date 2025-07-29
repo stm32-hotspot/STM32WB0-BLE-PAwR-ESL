@@ -47,8 +47,8 @@ STM32WB09 memory map
 #define _MEMORY_ROM_END_      0x100017FF  
 
 
-/* Reserved for BTLE stack non volatile memory */
-#define FLASH_NVM_DATASIZE     (4*1024)
+/* Reserved for BTLE stack non volatile memory and display images */
+#define FLASH_NVM_DATASIZE     (20*1024)
 
 #ifndef MEMORY_FLASH_APP_OFFSET
 #define MEMORY_FLASH_APP_OFFSET  (0)

@@ -262,8 +262,6 @@ static void Led_Init( void )
   BSP_LED_Init(LED_GREEN);
   BSP_LED_Init(LED_RED);
 
-  BSP_LED_On(LED_GREEN);
-
   return;
 }
 #endif

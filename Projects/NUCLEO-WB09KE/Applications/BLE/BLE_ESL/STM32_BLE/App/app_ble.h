@@ -88,33 +88,9 @@ typedef enum
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
+
 /* USER CODE BEGIN EC */
-/** 
-  * ST Manufacturer ID (2 bytes: least significant and most significant bytes).
-  */
-#define ST_MANUF_ID_LSB         0x30
-#define ST_MANUF_ID_MSB         0x00
 
-/** 
-  * BlueSTSDK Version
-  */
-#define  BLUESTSDK_V1           0x01
-#define  BLUESTSDK_V2           0x02
-
-/** 
-  * BOARD ID 
-  */
-#define  BOARD_ID_NUCLEO_WB0    0x8D
-
-/** 
-  * FIRMWARE ID 
-  */
-#define  FW_ID_P2P_SERVER       0x83
-#define  FW_ID_P2P_ROUTER       0x85
-#define  FW_ID_COC_PERIPH       0x87
-#define  FW_ID_DT_SERVER        0x88
-#define  FW_ID_HEART_RATE       0x89
-#define  FW_ID_HEALTH_THERMO    0x8A
 /* USER CODE END EC */
 
 /* External variables --------------------------------------------------------*/
@@ -129,6 +105,15 @@ typedef enum
 #define CONN_INT_MS(x) ((uint16_t)((x)/1.25f))
 #define CONN_SUP_TIMEOUT_MS(x) ((uint16_t)((x)/10.0f))
 #define CONN_CE_LENGTH_MS(x) ((uint16_t)((x)/0.625f))
+
+/* Maximum size of L2CAP SDUs that can be received. It must be at least 64 for
+  enhanced credit based mode. For OTS implementation, it cannot be greater than
+  a Flash page. */
+#define MAX_SDU_SIZE                                                         245
+
+/* SPSM for OTS */
+#define SPSM_OTS                                                          0x0025
+
 /* USER CODE BEGIN EM */
 
 /* USER CODE END EM */
@@ -137,7 +122,6 @@ typedef enum
 void ModulesInit(void);
 void BLE_Init(void);
 void APP_BLE_Init(void);
-APP_BLE_ConnStatus_t APP_BLE_Get_Server_Connection_Status(void);
 void APP_BLE_Procedure_Gap_General(ProcGapGeneralId_t ProcGapGeneralId);
 void APP_BLE_Procedure_Gap_Peripheral(ProcGapPeripheralId_t ProcGapPeripheralId);
 

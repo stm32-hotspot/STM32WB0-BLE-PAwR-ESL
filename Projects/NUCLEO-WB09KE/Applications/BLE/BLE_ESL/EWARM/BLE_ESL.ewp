@@ -1156,6 +1156,15 @@
                         <name>$PROJ_DIR$\..\STM32_BLE\App\esl_device.c</name>
                     </file>
                     <file>
+                        <name>$PROJ_DIR$\..\STM32_BLE\App\led_flash.c</name>
+                    </file>
+                    <file>
+                        <name>$PROJ_DIR$\..\STM32_BLE\App\ots.c</name>
+                    </file>
+                    <file>
+                        <name>$PROJ_DIR$\..\STM32_BLE\App\ots_app.c</name>
+                    </file>
+                    <file>
                         <name>$PROJ_DIR$\..\STM32_BLE\App\time_ref.c</name>
                     </file>
                 </group>
@@ -1330,6 +1339,9 @@
             </file>
             <file>
                 <name>$PROJ_DIR$\..\..\..\..\..\..\Drivers\STM32WB0x_HAL_Driver\Src\stm32wb0x_hal_gpio.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\..\..\..\..\..\Drivers\STM32WB0x_HAL_Driver\Src\stm32wb0x_hal_iwdg.c</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\..\..\..\..\..\Drivers\STM32WB0x_HAL_Driver\Src\stm32wb0x_hal_pka.c</name>

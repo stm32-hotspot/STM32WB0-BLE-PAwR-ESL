@@ -10,7 +10,7 @@
       <TargetName>BLE_ESL</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
+      <pCCUsed>6210000::V6.21::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -458,6 +458,21 @@
               <FileName>esl_display.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\STM32_BLE\App\esl_display.c</FilePath>
+            </File>
+            <File>
+              <FileName>ots.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\ots.c</FilePath>
+            </File>
+            <File>
+              <FileName>ots_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\ots_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>led_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\led_flash.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -915,29 +930,9 @@
               <FilePath>..\STM32_BLE\App\display\e-Paper\EPD_1in54_V2.c</FilePath>
             </File>
             <File>
-              <FileName>euro_symbol_30.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STM32_BLE\App\display\euro_symbol_30.c</FilePath>
-            </File>
-            <File>
               <FileName>GUI_Paint.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\STM32_BLE\App\display\GUI\GUI_Paint.c</FilePath>
-            </File>
-            <File>
-              <FileName>sale_tag_70x69.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STM32_BLE\App\display\sale_tag_70x69.c</FilePath>
-            </File>
-            <File>
-              <FileName>st_logo_80x47.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STM32_BLE\App\display\st_logo_80x47.c</FilePath>
-            </File>
-            <File>
-              <FileName>star_70x64.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STM32_BLE\App\display\star_70x64.c</FilePath>
             </File>
             <File>
               <FileName>britannic_bold70.c</FileName>
@@ -958,6 +953,11 @@
               <FileName>font24.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\STM32_BLE\App\display\Fonts\font24.c</FilePath>
+            </File>
+            <File>
+              <FileName>background.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\display\background.c</FilePath>
             </File>
           </Files>
         </Group>

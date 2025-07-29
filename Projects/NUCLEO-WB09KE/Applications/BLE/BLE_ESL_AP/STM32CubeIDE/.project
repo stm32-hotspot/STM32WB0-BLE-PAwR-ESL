@@ -277,6 +277,16 @@
 			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/gatt_client_app.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/STM32_BLE/App/image.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/image.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/STM32_BLE/App/otp_client.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/otp_client.c</locationURI>
+		</link>
+		<link>
 			<name>Application/User/STM32_BLE/App/time_ref.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/time_ref.c</locationURI>

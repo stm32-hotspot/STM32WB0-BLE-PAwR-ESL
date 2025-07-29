@@ -10,7 +10,7 @@
       <TargetName>BLE_ESL</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
+      <pCCUsed>6210000::V6.21::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -453,6 +453,21 @@
               <FileName>time_ref.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\STM32_BLE\App\time_ref.c</FilePath>
+            </File>
+            <File>
+              <FileName>led_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\led_flash.c</FilePath>
+            </File>
+            <File>
+              <FileName>ots.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\ots.c</FilePath>
+            </File>
+            <File>
+              <FileName>ots_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\STM32_BLE\App\ots_app.c</FilePath>
             </File>
           </Files>
         </Group>

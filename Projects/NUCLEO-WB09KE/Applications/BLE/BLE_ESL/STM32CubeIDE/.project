@@ -292,6 +292,21 @@
 			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/esl_device.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/STM32_BLE/App/led_flash.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/led_flash.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/STM32_BLE/App/ots.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/ots.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/STM32_BLE/App/ots_app.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/ots_app.c</locationURI>
+		</link>
+		<link>
 			<name>Application/User/STM32_BLE/App/time_ref.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/STM32_BLE/App/time_ref.c</locationURI>

@@ -71,7 +71,6 @@ typedef struct
 {
   uint8_t periodicCalibration; /*!< Periodic calibration enable status */
   uint32_t periodicCalibrationInterval;  /*!< Periodic calibration interval in ms, to disable set to 0 */
-  uint32_t periodicCalibrationCheckDuration;  /*!< Interval between calibration start and timeout interrupt to check if calibration is completed */
   bool calibration_in_progress;  /*!< Flag to indicate that a periodic calibration has been started */
 } CalibrationSettingsTypeDef;
 
@@ -347,7 +346,6 @@ void HAL_RADIO_TIMER_Init(RADIO_TIMER_InitTypeDef *RADIO_TIMER_InitStruct)
     RADIO_TIMER_Context.calibrationSettings.periodicCalibrationInterval = MIN(RADIO_TIMER_Context.calibrationSettings.periodicCalibrationInterval,
                                                                               HAL_RADIO_TIMER_MachineTimeToSysTime(TIMER_MAX_VALUE - TIMER_WRAPPING_MARGIN));
   }
-  RADIO_TIMER_Context.calibrationSettings.periodicCalibrationCheckDuration = CALIBRATION_CHECK_DURATION;
   RADIO_TIMER_Context.calibrationSettings.calibration_in_progress = FALSE;
 
   /* XTAL startup time configuration */
@@ -808,9 +806,9 @@ uint32_t HAL_RADIO_TIMER_ClearRadioTimerValue(void)
 
 /**
   * @brief Program the radio timer (a.k.a Timer1) as close as possible.
-  *        The current time is sampled and increased by two.
+  *        The current time is sampled and increased by 4.
   *        It means that the timer is going to trigger in a timer interval that goes
-  *        from one to two machine time units.
+  *        from three to four time units.
   */
 void HAL_RADIO_TIMER_SetRadioCloseTimeout(void)
 {
@@ -818,7 +816,7 @@ void HAL_RADIO_TIMER_SetRadioCloseTimeout(void)
 
   ATOMIC_SECTION_BEGIN();
   current_time = LL_RADIO_TIMER_GetAbsoluteTime(WAKEUP);
-  LL_RADIO_TIMER_SetTimeout(BLUE, ((current_time + 2) & TIMER_MAX_VALUE));
+  LL_RADIO_TIMER_SetTimeout(BLUE, ((current_time + 4) & TIMER_MAX_VALUE));
   LL_RADIO_TIMER_EnableTimer1(BLUE);
   ATOMIC_SECTION_END();
 }
@@ -1217,7 +1215,7 @@ static void _calibration_callback(void *handle)
     }
     RADIO_TIMER_Context.calibrationSettings.calibration_in_progress = TRUE;
   }
-  _start_timer(&RADIO_TIMER_Context.calibrationTimer, HAL_RADIO_TIMER_GetCurrentSysTime() + RADIO_TIMER_Context.calibrationSettings.periodicCalibrationCheckDuration);
+  _start_timer(&RADIO_TIMER_Context.calibrationTimer, HAL_RADIO_TIMER_GetCurrentSysTime() + CALIBRATION_CHECK_DURATION);
 }
 
 static int32_t _start_timer(VTIMER_HandleType *timerHandle, uint64_t time)
