@@ -109,7 +109,7 @@ typedef struct
   VTIMER_HandleType Synchronized_timer_Id;  
   /* If the ESL is not moved to the Updating state for 60 minutes, then the 
      ESL shall transition to the Unassociated state */
-  VTIMER_HandleType Unsynchronized_timer_Id;
+  VTIMER_HandleType Unassociate_timer_Id;
   
   VTIMER_HandleType Disconnection_timer_Id;
   
@@ -119,7 +119,7 @@ typedef struct
   uint8_t Peer_Address[6];
   bool    connected;
   bool   sync_recvd;
-  bool b_group_id_changed;
+  bool   upd_compl_recvd;
   bool bFactoryReset;
 } ESL_APP_Context_t;
 
@@ -220,10 +220,9 @@ void ESL_APP_Init(void)
   /* Create timer to manage Unsynchronized state timeout timerID*/
   /* If the ESL is not moved to the Updating state for 60 minutes, then the 
      ESL shall transition to the Unassociated state */
-  ESL_APP_Context.Unsynchronized_timer_Id.callback = ESL_APP_UnassociatedStateTimerCB;
+  ESL_APP_Context.Unassociate_timer_Id.callback = ESL_APP_UnassociatedStateTimerCB;
   
   ESL_APP_Context.Disconnection_timer_Id.callback = disconnection_delay;
-    
 }
 
 void ESL_APP_ConnectionComplete(uint16_t connection_handle, uint16_t sync_handle, uint8_t Peer_Address_Type, uint8_t Peer_Address[6])
@@ -236,6 +235,8 @@ void ESL_APP_ConnectionComplete(uint16_t connection_handle, uint16_t sync_handle
   /* When the AP connects with the ESL, using the Periodic Advertising Connection 
    procedure, the ESL transitions to the Updating state. */  
   ESL_APP_UpdatingStateTransition(sync_handle);
+  
+  ESL_APP_Context.upd_compl_recvd = false;
 }
 
 /* To be called when a bond has been established. */
@@ -316,9 +317,7 @@ uint8_t ESL_APP_SetESLAddress(uint16_t address)
     if (esl_id == 0xFF)
     {
       return BLE_ATT_ERR_VALUE_NOT_ALLOWED;
-    } 
-    
-    uint8_t prev_group_id = ESL_APP_Context.group_id;
+    }
     
     ESL_APP_Context.group_id = (address & 0x7F00) >> 8;
     ESL_APP_Context.esl_id = esl_id;
@@ -326,10 +325,6 @@ uint8_t ESL_APP_SetESLAddress(uint16_t address)
 //    APP_DBG_MSG("*** ESL_APP_Context.esl_id: 0X%04X\n", ESL_APP_Context.esl_id);
     
     ESL_APP_Context.config_state_flags |= CONFIG_STATE_FLAG_ADDRESS;
-    if (ESL_APP_Context.group_id != prev_group_id)
-      ESL_APP_Context.b_group_id_changed = true;
-    else
-      ESL_APP_Context.b_group_id_changed = false;
     
     return BLE_ATT_ERR_NONE;
   }
@@ -442,15 +437,18 @@ void ESL_APP_SyncInfoReceived(uint16_t sync_handle)
        the AP for 60 minutes then the ESL shall transition to the Unsynchronized state. */  
     HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Synchronized_timer_Id, SYNC_TIMEOUT_MS);
   }
-
-  ret = aci_gap_terminate(ESL_APP_Context.ConnectionHandle, BLE_ERROR_TERMINATED_REMOTE_USER);
-  if (ret != BLE_STATUS_SUCCESS)
+  
+  if(ESL_APP_Context.upd_compl_recvd)  
   {
-    APP_DBG_MSG("aci_gap_terminate failure: reason=0x%02X\n", ret);
-  }
-  else
-  {
-    APP_DBG_MSG("==>> aci_gap_terminate : Success (BLE_ERROR_TERMINATED_REMOTE_USER)\n");
+    ret = aci_gap_terminate(ESL_APP_Context.ConnectionHandle, BLE_ERROR_TERMINATED_REMOTE_USER);
+    if (ret != BLE_STATUS_SUCCESS)
+    {
+      APP_DBG_MSG("aci_gap_terminate failure: reason=0x%02X\n", ret);
+    }
+    else
+    {
+      APP_DBG_MSG("==>> aci_gap_terminate : Success (BLE_ERROR_TERMINATED_REMOTE_USER)\n");
+    }
   }
     
 }
@@ -699,33 +697,32 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
     case ESL_CMD_UPDATE_COMPLETE:
       {        
         APP_DBG_MSG("UPDATE COMPLETE command [opcode: 0x%02x] \n", opcode);
+        
+        ESL_APP_Context.upd_compl_recvd = true;
+        
         /* If an ESL receives the Update Complete command and it is synchronized, 
            the ESL shall immediately terminate the ACL connection and transition 
            to the Synchronized state. */
         if (ESL_APP_Context.sync_recvd)
         {         
-          /* If group_id is changed then the ESL have to resynchronise with AP */
-          if (ESL_APP_Context.b_group_id_changed)
+          APP_DBG_MSG("hci_le_set_periodic_sync_subevent:");    
+          ret = hci_le_set_periodic_sync_subevent(ESL_APP_Context.sync_handle,
+                                                  0, /* Periodic_Advertising_Properties */
+                                                  1, /* Num_Subevents */
+                                                  &ESL_APP_Context.group_id);
+          if (ret != BLE_STATUS_SUCCESS)
           {
-            APP_DBG_MSG("hci_le_set_periodic_sync_subevent:");    
-            ret = hci_le_set_periodic_sync_subevent(ESL_APP_Context.sync_handle,
-                                                    0, /* Periodic_Advertising_Properties */
-                                                    1, /* Num_Subevents */
-                                                    &ESL_APP_Context.group_id);
-            if (ret != BLE_STATUS_SUCCESS)
-            {
-              APP_DBG_MSG(" fail (0x%02x)\n", ret);
-            }
-            else
-            {
-              APP_DBG_MSG(" success\n");
-            }
-          }  
+            APP_DBG_MSG(" fail (0x%02x)\n", ret);
+          }
+          else
+          {
+            APP_DBG_MSG(" success\n");
+          } 
           
           APP_DBG_MSG("*** Synchronized State\n");
           ESL_APP_Context.state = ESL_STATE_SYNCHRONIZED;
           /* Delay for disconnection */
-          HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Disconnection_timer_Id, 100);
+          HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Disconnection_timer_Id, 200);
         }
         /* If an ESL receives the Update Complete command and it is not synchronized, 
            the ESL shall wait for synchronization to be established and then terminate 
@@ -745,6 +742,10 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
           //Basic State response bitmap parmam (16 bits)
           HOST_TO_LE_16(&esl_payload_resp[resp_idx + 1], ESL_APP_Context.basic_state);
           resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
+          
+          /* Start a timer to unassociate after a while. Do not unassociate immediately,
+             otherwise we will notbe able to send back the response. */
+          HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Unassociate_timer_Id, 1000);
         }
       }
       break; 
@@ -911,13 +912,6 @@ static void synch_packet_received(uint16_t pa_event, uint8_t *p_esl_data, uint8_
     esl_payload_resp[1] = AD_TYPE_ELECTRONIC_SHELF_LABEL;
     
     send_resp(pa_event, relevant_cmd_tlv_num, (uint32_t *)esl_payload_resp, resp_idx);
-    
-    /* When the Unassociate from AP command is received, and the response has  
-       been sent, the ESL shall remove all information with the AP */
-    if (opcode == ESL_CMD_UNASSOCIATE_FROM_AP)
-    {
-      ESL_APP_UnassociatedFromAPCmd();
-    }  
   }
   
 }
@@ -1009,13 +1003,6 @@ void ESL_APP_ControlPointReceived(uint8_t *p_cmd, uint8_t size)
     APP_DBG_MSG("RESPONSE opcode: 0x%02x \n", eslResp.p_Payload[0]);
     
     ESL_SERVICE_NotifyValue(ESL_SERVICE_CONTROL_POINT, &eslResp, ESL_APP_Context.ConnectionHandle);
-    
-    /* When the Unassociate from AP command is received, and the response has  
-       been sent, the ESL shall remove all information with the AP */
-    if (opcode == ESL_CMD_UNASSOCIATE_FROM_AP)
-    {
-      ESL_APP_UnassociatedFromAPCmd();
-    }  
   }
 }
 
@@ -1039,7 +1026,7 @@ static void ESL_APP_UnsynchronizedState(void)
      ESL shall transition to the Unassociated state, and shall remove all 
      bonding information with the AP and delete the value of the AP Sync 
      Key Material in internal storage. */
-  HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Unsynchronized_timer_Id, UNSYNC_TIMEOUT_MS);
+  HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Unassociate_timer_Id, UNSYNC_TIMEOUT_MS);
 }  
 
 // Synchronized_timer_Id callback
@@ -1051,6 +1038,7 @@ static void ESL_APP_UnsynchronizedStateTimerCB(void *arg)
   {  
     APP_DBG_MSG("Unsynchronized state for timeout\n");
     hci_le_periodic_advertising_terminate_sync(ESL_APP_Context.sync_handle);
+    ESL_APP_Context.sync_recvd = false;
     ESL_APP_UnsynchronizedState();
   }
 }
@@ -1060,16 +1048,48 @@ static void ESL_APP_UnsynchronizedStateTimerCB(void *arg)
    ESL shall transition to the Unassociated state */
 static void ESL_APP_UnassociatedStateTimerCB(void *arg)
 {
-  if(ESL_APP_Context.state == ESL_STATE_UNSYNCHRONIZED)
-  { 
-    ESL_APP_Context.state = ESL_STATE_UNASSOCIATED;
-    APP_DBG_MSG("*** Unssociated state for timeout\n");
-    /* ESL shall remove all bonding information with the AP and delete the value 
-       of the AP Sync Key Material in internal storage. */
-    aci_gap_clear_security_db();       
-    memset(ESL_APP_Context.ap_sync_key_material.Session_Key, 0, 16);
-    memset(ESL_APP_Context.ap_sync_key_material.IV, 0, 8);
+  hci_le_periodic_advertising_terminate_sync(ESL_APP_Context.sync_handle);
+  ESL_APP_Context.sync_recvd = false;
+  
+  ESL_APP_Context.state = ESL_STATE_UNASSOCIATED;
+  APP_DBG_MSG("*** Unassociated state\n");
+  /* ESL shall remove all bonding information with the AP and delete the value 
+  of the AP Sync Key Material in internal storage. */
+  aci_gap_clear_security_db();       
+  memset(ESL_APP_Context.ap_sync_key_material.Session_Key, 0, 16);
+  memset(ESL_APP_Context.ap_sync_key_material.IV, 0, 8);
+  ESL_APP_Context.esl_id = -1;
+  
+#if NUM_LEDS
+  
+  for(int led_index = 0; led_index < NUM_LEDS; led_index++)
+  {
+    if(led_timed_info[led_index].timer.active)
+    {
+      HAL_RADIO_TIMER_StopVirtualTimer(&led_timed_info[led_index].timer);
+      APP_DBG_MSG("Pending LED command deleted\n");
+    }
   }
+  ESL_APP_ResetBasicStateBitmap(BASIC_STATE_PENDING_LED_UPDATE_BIT);
+  
+#endif
+  
+#if NUM_DISPLAYS
+  
+  for(int display_index = 0; display_index < NUM_DISPLAYS; display_index++)
+  {
+    if(display_timed_info[display_index].timer.active)
+    {
+      HAL_RADIO_TIMER_StopVirtualTimer(&display_timed_info[display_index].timer);
+      APP_DBG_MSG("Pending Display command deleted\n");
+    }
+  }
+  ESL_APP_ResetBasicStateBitmap(BASIC_STATE_PENDING_DISPLAY_UPDATE_BIT);
+  
+#endif
+  
+  // Enter GAP undirected connectable mode.
+  APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_START_LP);  
 }
 
 static void ESL_APP_UpdatingStateTransition(uint16_t sync_handle)
@@ -1102,7 +1122,7 @@ static void ESL_APP_UpdatingStateTransition(uint16_t sync_handle)
       ESL_APP_Context.state = ESL_STATE_UPDATING;
       APP_DBG_MSG("*** Updating state transition from Unsynchronized state\n"); 
       //Stop the timer
-      HAL_RADIO_TIMER_StopVirtualTimer(&ESL_APP_Context.Unsynchronized_timer_Id);    
+      HAL_RADIO_TIMER_StopVirtualTimer(&ESL_APP_Context.Unassociate_timer_Id);    
     }  
   }  
 }
@@ -1168,24 +1188,6 @@ void ESL_APP_ResetBasicStateBitmap(uint8_t basic_resp_bit)
   ESL_APP_Context.basic_state &= (~basic_resp_bit);
 }
 
-void ESL_APP_UnassociatedFromAPCmd(void)
-{
-  /* The ESL shall remove all bonding information with the AP, delete
-     the value of the AP Sync Key Material in internal storage, the 
-     ESL ID and delete all stored commands. */          
-  aci_gap_clear_security_db();       
-  memset(ESL_APP_Context.ap_sync_key_material.Session_Key, 0, 16);
-  memset(ESL_APP_Context.ap_sync_key_material.IV, 0, 8);
-  ESL_APP_Context.esl_id = -1;
-  //TODO: delete pending commands
-  
-  /* The ESL shall enter the Unassociated state. */
-  ESL_APP_Context.state = ESL_STATE_UNASSOCIATED;
-  APP_DBG_MSG("*** Unassociated state by commands (Unassociated from AP or Factory Reset) \n");
-  // Enter GAP undirected connectable mode.
-  APP_BLE_Procedure_Gap_Peripheral(PROC_GAP_PERIPH_ADVERTISE_START_LP);
-}
-
 void UartRxCpltCallback(uint8_t * pRxDataBuff, uint16_t nDataSize)
 {
   /* nDataSize always 1 in current implementation. */
@@ -1233,6 +1235,7 @@ static int parse_cmd(void)
   {
     APP_DBG_MSG("--> Set The ESL state to Unsynchronized\n");    
     hci_le_periodic_advertising_terminate_sync(ESL_APP_Context.sync_handle);
+    ESL_APP_Context.sync_recvd = false;
     ESL_APP_UnsynchronizedState();
     return 0;
   }
@@ -1495,7 +1498,7 @@ static uint8_t displayTimedImageCmdCB(uint8_t display_index, uint8_t image_index
       /* If the value of the Absolute Time parameter is zero (0x00000000), 
       then the pending Display Timed Image command shall be deleted.*/
       HAL_RADIO_TIMER_StopVirtualTimer(&display_timed_info[display_index].timer);
-      APP_DBG_MSG("Pending LED command deleted\n");
+      APP_DBG_MSG("Pending Display command deleted\n");
       checkPendingDisplayUpdate();
       return 0;
     }

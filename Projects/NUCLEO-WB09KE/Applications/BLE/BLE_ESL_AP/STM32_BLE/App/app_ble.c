@@ -177,9 +177,9 @@ static void connection_complete_event(uint8_t Status,
                                       uint16_t Connection_Interval,
                                       uint16_t Peripheral_Latency,
                                       uint16_t Supervision_Timeout);
-
 static void gap_cmd_resp_wait(void);
 static void gap_cmd_resp_release(void);
+
 /* USER CODE BEGIN PFP */
 static void start_periodic_adv(void);
 void connection_setup(void);
@@ -253,6 +253,7 @@ void BLE_Init(void)
     .NumOfBrcBIS = CFG_BLE_NUM_BRC_BIS_MAX,
     .NumOfCIG = CFG_BLE_NUM_CIG_MAX,
     .NumOfCIS = CFG_BLE_NUM_CIS_MAX,
+    .ExtraLLProcedureContexts = CFG_BLE_EXTRA_LL_PROCEDURE_CONTEXTS,
     .isr0_fifo_size = CFG_BLE_ISR0_FIFO_SIZE,
     .isr1_fifo_size = CFG_BLE_ISR1_FIFO_SIZE,
     .user_fifo_size = CFG_BLE_USER_FIFO_SIZE
@@ -507,6 +508,13 @@ void HAL_RADIO_TxRxCallback(uint32_t flags)
 
   VTimer_Process_Schedule();
   NVM_Process_Schedule();
+
+}
+
+/* Function called from RADIO_RRM_IRQHandler() context. */
+void HAL_RADIO_RRMCallback(uint32_t ble_irq_status)
+{
+  BLE_STACK_RRMHandler(ble_irq_status);
 }
 
 void UART_CMD_ProcessRequestCB(void)
@@ -532,12 +540,12 @@ void APP_BLE_Init(void)
 
   /* Initialization of HCI & GATT & GAP layer */
   BLE_Init();
-  
+
   /**
   * Initialize GATT Client Application
   */
   GATT_CLIENT_APP_Init();
-  
+
   /* USER CODE BEGIN APP_BLE_Init_2 */
   UTIL_SEQ_RegTask(1U << CFG_TASK_UART_CMD_PROCESS, UTIL_SEQ_RFU, UART_CMD_Process);
   UTIL_SEQ_RegTask(1u << CFG_TASK_CONN_DEV_ID, UTIL_SEQ_RFU, Connect_Request);
@@ -591,10 +599,14 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
     {
       hci_disconnection_complete_event_rp0 *p_disconnection_complete_event;
       p_disconnection_complete_event = (hci_disconnection_complete_event_rp0 *) p_event_pckt->data;
+      GATT_CLIENT_APP_ConnHandle_Notif_evt_t notif;
 
-        /* USER CODE BEGIN EVT_DISCONN_COMPLETE_3 */
+      /* USER CODE BEGIN EVT_DISCONN_COMPLETE_3 */
 
-        /* USER CODE END EVT_DISCONN_COMPLETE_3 */
+      /* USER CODE END EVT_DISCONN_COMPLETE_3 */
+      notif.ConnOpcode = PEER_DISCON_HANDLE_EVT;
+      notif.ConnHdl = p_disconnection_complete_event->Connection_Handle;
+      GATT_CLIENT_APP_Notification(&notif);
 
       if (p_disconnection_complete_event->Connection_Handle == bleAppContext.BleApplicationContext_legacy.connectionHandle)
       {
@@ -605,13 +617,8 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
                     p_disconnection_complete_event->Connection_Handle,
                     p_disconnection_complete_event->Reason);
 
-        /* USER CODE BEGIN EVT_DISCONN_COMPLETE_2 */        
+        /* USER CODE BEGIN EVT_DISCONN_COMPLETE_2 */
         memset(bleAppContext.a_deviceServerBdAddr, 0, sizeof(bleAppContext.a_deviceServerBdAddr));
-        
-        GATT_CLIENT_APP_ConnHandle_Notif_evt_t notif;
-        notif.ConnOpcode = PEER_DISCON_HANDLE_EVT;
-        notif.ConnHdl = p_disconnection_complete_event->Connection_Handle;   
-        GATT_CLIENT_APP_Notification(&notif);
         
         ESL_AP_DisconnectionComplete(p_disconnection_complete_event->Connection_Handle);
         
@@ -673,7 +680,7 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
           APP_DBG_MSG("HCI_LE_ENHANCED_CONNECTION_COMPLETE_SUBEVT_CODE\n");
           connection_complete_event(p_enhanced_conn_complete->Status,
                                     p_enhanced_conn_complete->Connection_Handle,
-				                    p_enhanced_conn_complete->Role,
+                                    p_enhanced_conn_complete->Role,
                                     p_enhanced_conn_complete->Peer_Address_Type,
                                     p_enhanced_conn_complete->Peer_Address,
                                     p_enhanced_conn_complete->Connection_Interval,
@@ -738,7 +745,7 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
           UNUSED(p_ext_adv_report);
 
         }
-        break;          
+        break;
       /* USER CODE BEGIN EVT_LE_META_EVENT_1 */
       case HCI_LE_READ_REMOTE_FEATURES_COMPLETE_SUBEVT_CODE:
         {
@@ -782,7 +789,7 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
           for(int i = 0; i < p_periodic_adv_response_report->Num_Responses; i++)
           {
             ESL_AP_ResponseReport(p_periodic_adv_response_report->Subevent, periodic_adv_resp_p->Response_Slot, periodic_adv_resp_p->Data_Length, periodic_adv_resp_p->Data);
-            periodic_adv_resp_p = periodic_adv_resp_p + sizeof(packed_Periodic_Advertising_Response_t) + periodic_adv_resp_p->Data_Length;
+            periodic_adv_resp_p = (packed_Periodic_Advertising_Response_t *)((uint8_t *)periodic_adv_resp_p + sizeof(packed_Periodic_Advertising_Response_t) + periodic_adv_resp_p->Data_Length);
           }
           
         }
@@ -861,14 +868,14 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
         break;
       case ACI_HAL_END_OF_RADIO_ACTIVITY_VSEVT_CODE:
         /* USER CODE BEGIN RADIO_ACTIVITY_EVENT*/
-       
+
         /* USER CODE END RADIO_ACTIVITY_EVENT*/
         break;
       case ACI_GAP_KEYPRESS_NOTIFICATION_VSEVT_CODE:
         {
           APP_DBG_MSG(">>== ACI_GAP_KEYPRESS_NOTIFICATION_VSEVT_CODE\n");
           /* USER CODE BEGIN ACI_GAP_KEYPRESS_NOTIFICATION_VSEVT_CODE*/
-          
+
           /* USER CODE END ACI_GAP_KEYPRESS_NOTIFICATION_VSEVT_CODE*/
         }
         break;
@@ -886,7 +893,7 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
             APP_DBG_MSG("==>> aci_gap_passkey_resp : Success\n");
           }
           /* USER CODE BEGIN ACI_GAP_PASSKEY_REQ_VSEVT_CODE*/
-          
+
           /* USER CODE END ACI_GAP_PASSKEY_REQ_VSEVT_CODE*/
         }
         break;
@@ -974,8 +981,33 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
           /* USER CODE END ACI_GAP_PAIRING_COMPLETE_VSEVT_CODE*/
         }
         break;
+      case ACI_GATT_SRV_READ_VSEVT_CODE :
+        {
+          APP_DBG_MSG(">>== ACI_GATT_SRV_READ_VSEVT_CODE\n");
+
+          aci_gatt_srv_read_event_rp0    *p_read;
+          p_read = (aci_gatt_srv_read_event_rp0*)p_blecore_evt->data;
+          uint8_t error_code = BLE_ATT_ERR_INSUFF_AUTHORIZATION;
+
+          APP_DBG_MSG("Handle 0x%04X\n",  p_read->Attribute_Handle);
+
+          /* USER CODE BEGIN ACI_GATT_SRV_READ_VSEVT_CODE_1*/
+
+          /* USER CODE END ACI_GATT_SRV_READ_VSEVT_CODE_1*/
+
+          aci_gatt_srv_resp(p_read->Connection_Handle,
+                            p_read->CID,
+                            p_read->Attribute_Handle,
+                            error_code,
+                            0,
+                            NULL);
+
+          /* USER CODE BEGIN ACI_GATT_SRV_READ_VSEVT_CODE_2*/
+
+          /* USER CODE END ACI_GATT_SRV_READ_VSEVT_CODE_2*/
+          break;
+        }
         /* USER CODE BEGIN EVT_VENDOR_1 */
-        
       case ACI_L2CAP_COS_CONNECTION_RESP_VSEVT_CODE:
         {
           APP_DBG_MSG(">>== ACI_L2CAP_COS_CONNECTION_RESP_VSEVT_CODE\n");
@@ -1000,6 +1032,24 @@ void BLEEVT_App_Notification(const hci_pckt *hci_pckt)
         {
           APP_DBG_MSG(">>== ACI_L2CAP_COS_DISCONNECTION_COMPLETE_VSEVT_CODE\n");
           OTP_CLIENT_L2CAPDisconnectionComplete();
+        }
+        break;
+      case ACI_L2CAP_COMMAND_REJECT_VSEVT_CODE:
+        {
+          APP_DBG_MSG(">>== ACI_L2CAP_COMMAND_REJECT_VSEVT_CODE\n");
+          aci_l2cap_command_reject_event_rp0 *p_event;
+          p_event = (aci_l2cap_command_reject_event_rp0 *) p_blecore_evt->data;
+          
+          APP_DBG_MSG("Reason: 0x%04X\n", p_event->Reason);
+          if(p_event->Data_Length > 0)
+          {
+            APP_DBG_MSG("Reason Data:");
+            for(int i = 0;  i < p_event->Data_Length; i++)
+            {
+              APP_DBG_MSG("%02X ", p_event->Data[i]);
+            }
+            APP_DBG_MSG("\n");
+          }          
         }
         break;
       case ACI_HAL_FW_ERROR_VSEVT_CODE: 
@@ -1066,51 +1116,56 @@ static void connection_complete_event(uint8_t Status,
                                       uint16_t Peripheral_Latency,
                                       uint16_t Supervision_Timeout)
 {
+  GATT_CLIENT_APP_ConnHandle_Notif_evt_t notif;
+
+  if(Status != 0)
+  {
+    APP_DBG_MSG("==>> connection_complete_event Fail, Status: 0x%02X\n", Status);
+    bleAppContext.Device_Connection_Status = APP_BLE_IDLE;
+    return;
+  }
   /* USER CODE BEGIN HCI_EVT_LE_CONN_COMPLETE_1 */
 
   /* USER CODE END HCI_EVT_LE_CONN_COMPLETE_1 */
-   APP_DBG_MSG(">>== hci_le_connection_complete_event - Connection handle: 0x%04X\n", Connection_Handle);
-   APP_DBG_MSG("     - Connection established with @:%02x:%02x:%02x:%02x:%02x:%02x\n",
-               Peer_Address[5],
-               Peer_Address[4],
-               Peer_Address[3],
-               Peer_Address[2],
-               Peer_Address[1],
-               Peer_Address[0]);
-   APP_DBG_MSG("     - Connection Interval:   %d.%02d ms\n     - Connection latency:    %d\n     - Supervision Timeout: %d ms    - Status: 0x%02x\n",
+  APP_DBG_MSG(">>== hci_le_connection_complete_event - Connection handle: 0x%04X\n", Connection_Handle);
+  APP_DBG_MSG("     - Connection established with @:%02x:%02x:%02x:%02x:%02x:%02x\n",
+              Peer_Address[5],
+              Peer_Address[4],
+              Peer_Address[3],
+              Peer_Address[2],
+              Peer_Address[1],
+              Peer_Address[0]);
+   APP_DBG_MSG("     - Connection Interval:   %d.%02d ms\n     - Connection latency:    %d\n     - Supervision Timeout: %d ms\n",
                INT(Conn_Interval*1.25),
                FRACTIONAL_2DIGITS(Conn_Interval*1.25),
                Peripheral_Latency,
-               Supervision_Timeout * 10,
-               Status);
-   if(Status != BLE_STATUS_SUCCESS)
-    return;
-   
-   if (bleAppContext.Device_Connection_Status == APP_BLE_LP_CONNECTING)
-   {
-     /* Connection as client */
-     bleAppContext.Device_Connection_Status = APP_BLE_CONNECTED_CLIENT;
-   }
-   else
-   {
-     /* Connection as server */
-     bleAppContext.Device_Connection_Status = APP_BLE_CONNECTED_SERVER;
-   }  
-   bleAppContext.BleApplicationContext_legacy.connectionHandle = Connection_Handle;
-   
-   GATT_CLIENT_APP_ConnHandle_Notif_evt_t notif;
-   notif.ConnOpcode = PEER_CONN_HANDLE_EVT;
-   notif.ConnHdl = Connection_Handle;   
-   GATT_CLIENT_APP_Notification(&notif);
-   
-   /* USER CODE BEGIN HCI_EVT_LE_CONN_COMPLETE */
+               Supervision_Timeout * 10
+                 );
+
+  if (bleAppContext.Device_Connection_Status == APP_BLE_LP_CONNECTING)
+  {
+    /* Connection as client */
+    bleAppContext.Device_Connection_Status = APP_BLE_CONNECTED_CLIENT;
+
+    notif.ConnOpcode = PEER_CONN_HANDLE_EVT;
+    notif.ConnHdl = Connection_Handle;
+    GATT_CLIENT_APP_Notification(&notif);
+  }
+  else
+  {
+    /* Connection as server */
+    bleAppContext.Device_Connection_Status = APP_BLE_CONNECTED_SERVER;
+  }
+  bleAppContext.BleApplicationContext_legacy.connectionHandle = Connection_Handle;
+
+  /* USER CODE BEGIN HCI_EVT_LE_CONN_COMPLETE */
     
-   UTIL_SEQ_SetTask( 1U << CFG_TASK_CONN_SETUP, CFG_SEQ_PRIO_0);
-   
-   bleAppContext.deviceServerBdAddrType = Peer_Address_Type;
-   memcpy(bleAppContext.a_deviceServerBdAddr, Peer_Address, BD_ADDR_SIZE);
-   
-   /* USER CODE END HCI_EVT_LE_CONN_COMPLETE */
+  UTIL_SEQ_SetTask( 1U << CFG_TASK_CONN_SETUP, CFG_SEQ_PRIO_0);
+  
+  bleAppContext.deviceServerBdAddrType = Peer_Address_Type;
+  memcpy(bleAppContext.a_deviceServerBdAddr, Peer_Address, BD_ADDR_SIZE); 
+  
+  /* USER CODE END HCI_EVT_LE_CONN_COMPLETE */
 
 }/* end hci_le_connection_complete_event() */
 
@@ -1257,6 +1312,9 @@ void APP_BLE_Procedure_Gap_Central(ProcGapCentralId_t ProcGapCentralId)
       /* USER CODE END PROC_GAP_CENTRAL_SCAN_TERMINATE */
       break;
     }/* PROC_GAP_CENTRAL_SCAN_TERMINATE */
+    /* USER CODE BEGIN GAP_CENTRAL_1 */
+
+    /* USER CODE END GAP_CENTRAL_1 */
     default:
       break;
   }
@@ -1302,7 +1360,9 @@ void APP_BLE_Procedure_Gap_Central(ProcGapCentralId_t ProcGapCentralId)
       }
       break;
     }/* PROC_GAP_CENTRAL_SCAN_TERMINATE */
+    /* USER CODE BEGIN GAP_CENTRAL_2 */
 
+    /* USER CODE END GAP_CENTRAL_2 */
     default:
       break;
   }

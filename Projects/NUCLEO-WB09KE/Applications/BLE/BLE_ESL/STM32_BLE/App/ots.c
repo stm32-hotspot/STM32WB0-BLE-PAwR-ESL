@@ -167,7 +167,7 @@ static const ble_gatt_chr_def_t ots_chars[] = {
   },
   {
     .properties = BLE_GATT_SRV_CHAR_PROP_WRITE|BLE_GATT_SRV_CHAR_PROP_INDICATE,
-    .permissions = BLE_GATT_SRV_PERM_ENCRY_READ,
+    .permissions = BLE_GATT_SRV_PERM_ENCRY_READ|BLE_GATT_SRV_PERM_ENCRY_WRITE,
     .min_key_size = 16,
     .uuid = BLE_UUID_INIT_16(OBJECT_ACTION_CONTROL_POINT_UUID),
     .val_buffer_p = NULL,
@@ -178,7 +178,7 @@ static const ble_gatt_chr_def_t ots_chars[] = {
   },
   {
     .properties = BLE_GATT_SRV_CHAR_PROP_WRITE|BLE_GATT_SRV_CHAR_PROP_INDICATE,
-    .permissions = BLE_GATT_SRV_PERM_ENCRY_READ,
+    .permissions = BLE_GATT_SRV_PERM_ENCRY_READ|BLE_GATT_SRV_PERM_ENCRY_WRITE,
     .min_key_size = 16,
     .uuid = BLE_UUID_INIT_16(OBJECT_LIST_CONTROL_POINT_UUID),
     .val_buffer_p = NULL,

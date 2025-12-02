@@ -3,6 +3,42 @@
 
 This package contains two specific applications to demonstrate Bluetooth Periodic Advertising with Response (PAwR) with Electronic Shelf Label (ESL) profile on STM32WB09 MCU. See README file for more details.
 
+## [2.2.0] - 2025-11-26
+ 
+### New Features
+
+- Alignment to STM32CubeWB0 v1.4.0 package.
+- Minor improvements
+
+### Content
+
+Refer to Release Notes of STM32CubeWB0 v1.4.0 package for details of Components (Drivers, Cortex-M CMSIS, STM32 CMSIS, STMWB0x_HAL_Driver, STM32WB0x_Nucleo, Middlewares, Utilities)
+
+### Development Toolchains and Compilers
+
+- IAR Embedded Workbench for ARM (EWARM) toolchain from v9.30.1
+- uVision Microcontroller Development Kit (MDK-ARM) from v5.37
+- STM32CubeIDE from v1.17.0
+
+### Supported Devices and Boards
+
+- STM32WB09
+  - NUCLEO-WB09KE board
+  - STEVAL-ESL1KCB board
+
+### Bug fixes
+
+- ESL AP:
+  - Fixed reserved area for NVM in linker scripts for CubeIDE and Keil
+- ESL:
+  - Increased disconnection timeout to 200 ms to avoid losing ATT response
+
+### Known Limitations
+- After a reset, the ESL gets unassociated. This limitation can be removed, but ESL will lose the absolute time provided by the AP: the AP needs
+  to set absolute time when synchronizing the ESL.
+- LED brightness control not implemented.
+- Not possible to cancel a create connection command: AT command to be implemented.
+
 ## [2.1.0] - 2025-07-24
  
 ### New Features

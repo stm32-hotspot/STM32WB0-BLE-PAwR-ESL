@@ -38,18 +38,11 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 typedef enum
 {
-  GATT_CLIENT_APP_IDLE,
+  GATT_CLIENT_APP_DISCONNECTED,
   GATT_CLIENT_APP_CONNECTED,
-  GATT_CLIENT_APP_DISCONNECTING,
-  GATT_CLIENT_APP_DISCONN_COMPLETE,
   GATT_CLIENT_APP_DISCOVER_SERVICES,
-  GATT_CLIENT_APP_DISCOVER_CHARACS,
-  GATT_CLIENT_APP_DISCOVER_WRITE_DESC,
-  GATT_CLIENT_APP_DISCOVER_NOTIFICATION_CHAR_DESC,
-  GATT_CLIENT_APP_ENABLE_NOTIFICATION_DESC,
-  GATT_CLIENT_APP_DISABLE_NOTIFICATION_DESC,
-  /* USER CODE BEGIN GATT_CLIENT_APP_State_t*/
-  
+  /* USER CODE BEGIN GATT_CLIENT_APP_State_t */
+
   /* USER CODE END GATT_CLIENT_APP_State_t */
 }GATT_CLIENT_APP_State_t;
 
@@ -57,36 +50,23 @@ typedef enum
 {
   PEER_CONN_HANDLE_EVT,
   PEER_DISCON_HANDLE_EVT,
-  /* USER CODE BEGIN GATT_CLIENT_APP_Conn_Opcode_t*/
+  /* USER CODE BEGIN GATT_CLIENT_APP_Conn_Opcode_t */
 
   /* USER CODE END GATT_CLIENT_APP_Conn_Opcode_t */
 }GATT_CLIENT_APP_Conn_Opcode_t;
-
-typedef enum
-{
-  PROC_GATT_DISC_ALL_PRIMARY_SERVICES,
-  PROC_GATT_DISC_ALL_CHARS,
-  PROC_GATT_DISC_ALL_DESCS,
-  PROC_GATT_ENABLE_ALL_NOTIFICATIONS,
-  /* USER CODE BEGIN ProcGattId_t*/
-
-  /* USER CODE END ProcGattId_t */
-}ProcGattId_t;
 
 typedef struct
 {
   GATT_CLIENT_APP_Conn_Opcode_t          ConnOpcode;
   uint16_t                              ConnHdl;
 }GATT_CLIENT_APP_ConnHandle_Notif_evt_t;
-
-
 /* USER CODE BEGIN ET */
 
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
 
-#define CFG_BLE_NUM_CLIENT_CONTEXTS                                         1
+#define CFG_BLE_NUM_CLIENT_CONTEXTS                   1
 
 /* USER CODE BEGIN EC */
 #define ESL_SERVICE_UUID                                                (0x1857)
@@ -117,8 +97,6 @@ typedef struct
 #define DEVICE_INFORMATION_SERVICE_UUID                                 (0x180A)
 #define PNPID_UUID                                                      (0x2A50)
 
-#define CFG_MAX_NUM_CONNECTED_SERVERS                                          1
-
 /* USER CODE END EC */
 
 /* External variables --------------------------------------------------------*/
@@ -131,11 +109,10 @@ typedef struct
 
 /* USER CODE END EM */
 
-/* Exported functions ---------------------------------------------*/
+/* Exported functions prototypes ---------------------------------------------*/
 void GATT_CLIENT_APP_Init(void);
 void GATT_CLIENT_APP_Notification(GATT_CLIENT_APP_ConnHandle_Notif_evt_t *p_Notif);
-uint8_t GATT_CLIENT_APP_GetState(uint8_t index);
-void GATT_CLIENT_APP_DiscoverServices(uint8_t index);
+void GATT_CLIENT_APP_DiscoverServices(uint16_t connection_handle);
 /* USER CODE BEGIN EFP */
 uint8_t GATT_CLIENT_APP_ConfigureESL(void);
 uint8_t GATT_CLIENT_APP_WriteECP(uint8_t* cmd, uint8_t len_cmd, bool bResponse);

@@ -88,7 +88,6 @@ typedef enum
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
-
 /* USER CODE BEGIN EC */
 
 /* USER CODE END EC */
@@ -122,6 +121,7 @@ typedef enum
 void ModulesInit(void);
 void BLE_Init(void);
 void APP_BLE_Init(void);
+APP_BLE_ConnStatus_t APP_BLE_Get_Server_Connection_Status(void);
 void APP_BLE_Procedure_Gap_General(ProcGapGeneralId_t ProcGapGeneralId);
 void APP_BLE_Procedure_Gap_Peripheral(ProcGapPeripheralId_t ProcGapPeripheralId);
 

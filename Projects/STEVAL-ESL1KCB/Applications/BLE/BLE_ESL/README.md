@@ -36,7 +36,7 @@ In order to make the program work, you must do the following:
  - Run the example.
  - Optionally, a serial terminal (with settings 921600-8-N-1), can be opened to see some info.
  - Use another Nucleo board running BLE_ESL_AP.
- - Add the ESL to the network by launching the appropropriate command on the AP (e.g. AT+ADD).
+ - Add the ESL to the network by launching the appropriate command on the AP (e.g. AT+ADD).
  - Once the BLE_ESL has been synchronized, ESL commands can be sent from the AP by specifying the assigned GROUP_ID and ESL_ID.
 
 For more info on how to send commands from the AP, see the related documentation.

@@ -107,7 +107,6 @@ void ESL_APP_PairingRequest(uint16_t connHandle);
 int ESL_APP_GetAddress(uint8_t *group_id_p, uint8_t *esl_id_p);
 uint8_t ESL_APP_SetBasicStateBitmap(uint8_t basic_resp_bit);
 void ESL_APP_ResetBasicStateBitmap(uint8_t basic_resp_bit);
-void ESL_APP_UnassociatedFromAPCmd(void);
 void ESL_APP_SetLEDState(uint8_t index, ESL_APP_LEDState_t led_state);
 void ESL_APP_CmdProcessRequestCB(void);
 void ESL_APP_CmdProcess(void);

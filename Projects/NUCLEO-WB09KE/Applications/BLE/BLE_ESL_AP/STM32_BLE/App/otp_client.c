@@ -184,7 +184,7 @@ static int waitOLCPResponse(void)
       { 
 #if OTP_DEBUG
         APP_DBG_MSG("Response: ");
-        for(int i = 0; i < sizeof(OTPClientContext.CP_response_length); i++)
+        for(int i = 0; i < OTPClientContext.CP_response_length; i++)
         {
           APP_DBG_MSG("%02X ", OTPClientContext.CP_response[i]);
         }
@@ -253,7 +253,7 @@ static int waitOACPResponse(void)
       {
 #if OTP_DEBUG
         APP_DBG_MSG("Response: ");
-        for(int i = 0; i < sizeof(OTPClientContext.CP_response_length); i++)
+        for(int i = 0; i < OTPClientContext.CP_response_length; i++)
         {
           APP_DBG_MSG("%02X ", OTPClientContext.CP_response[i]);
         }

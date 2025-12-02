@@ -550,10 +550,8 @@ static int parse_cmd(void)
   }   
   // Command to reconfigure an ESL with a new address
   else if(strncasecmp((char *)CommandString, "AT+RECONF=", 10) == 0)
-  {
-    uint32_t new_group_id, new_esl_id;
-    
-    ret = sscanf((char*)CommandString + 10, "%x,%x", &new_group_id, &new_esl_id);
+  {    
+    ret = sscanf((char*)CommandString + 10, "%x,%x", &group_id, &esl_id);
     if(ret != 2 || group_id >= MAX_GROUPS)
     {
       return 1;
@@ -562,7 +560,7 @@ static int parse_cmd(void)
     {
     /* To transition an ESL from the Synchronized state to the Updating state, 
        the AP shall use the Periodic Advertising Connection procedure */  
-      if(ESL_AP_SetNewEslAddress(new_group_id, new_esl_id) == 0)
+      if(ESL_AP_SetNewEslAddress(group_id, esl_id) == 0)
       {
         return 0;
       }
@@ -710,6 +708,7 @@ static int parse_cmd(void)
     /* Command only used to test OTP */    
     uint32_t addr_type;
     uint64_t address;
+    extern ESL_AP_context_t ESL_AP_Context;
     
     ret = sscanf((char*)CommandString + 11, "%d,%llx",&addr_type, &address);
     if(ret != 2)
@@ -878,8 +877,8 @@ static int parse_cmd(void)
     printf("  - AT+PING=<group_id>,<esl_id>: Ping\n");
     printf("  - AT+UNASSOC=<group_id>,<esl_id>: Unassociate from AP\n");
     printf("  - AT+SRVRST=<group_id>,<esl_id>: Service Reset\n");
-    printf("  - AT+FRST=<group_id>,<esl_id>: Factory Reset\n");
-    printf("  - AT+UPDCMP=<group_id>,<esl_id>: Update Complete\n");
+    printf("  - AT+FRST: Factory Reset (connected ESL)\n");
+    printf("  - AT+UPDCMP: Update Complete (connected ESL)\n");
     printf("  - AT+SENS=<group_id>,<esl_id>,<sensor_index>: Read Sensor Data\n");
     printf("  - AT+REFRESH=<group_id>,<esl_id>,<display_index>: Refresh Display\n");
     printf("  - AT+IMG=<group_id>,<esl_id>,<display_index>,<image_index>: Display Image\n");
@@ -893,14 +892,14 @@ static int parse_cmd(void)
     
     printf("\nCommands for special operations or tests\n");
     printf("  - AT+SCAN: Scan for ESLs\n");
-    printf("  - AT+ADD=<addr_type>,<addres>,<group_id>,<esl_id>: Add an ESL to the network\n");  
+    printf("  - AT+ADD=<addr_type>,<address>,<group_id>,<esl_id>: Add an ESL to the network\n");  
     printf("  - AT+CONN=<group_id>,<esl_id>: Connect to an ESL for update\n");
-    printf("  - AT+RECONF=<new_group_id>,<new_esl_id>: Reconfigure the connnected ESL with a new address\n");
+    printf("  - AT+RECONF=<new_group_id>,<new_esl_id>: Reconfigure the connected ESL with a new address\n");
     printf("  - AT+INFO: Read all the Information Characteristics from the connected ESL\n");    
     printf("  - AT+DISPLAYINFO: Read the Display Information Characteristic from the connected ESL\n");
     printf("  - AT+SENSORINFO: Read the Sensor Information Characteristic from the connected ESL\n");
     printf("  - AT+LEDINFO: Read the LED Information Characteristic from the connected ESL\n");
-    printf("  - AT+CLRSCDB: Clear the security db\n");
+    printf("  - AT+CLRNVM: Clear the NVM database\n");
     printf("  - AT+ABSTIME?: Read current absolute time\n");
     printf("  - AT+OTPSEARCH: Discover images on the connected server on the ESL\n");
     printf("  - AT+OTPSEARCH=<name>: Search and select the specified image on the connected ESL\n");

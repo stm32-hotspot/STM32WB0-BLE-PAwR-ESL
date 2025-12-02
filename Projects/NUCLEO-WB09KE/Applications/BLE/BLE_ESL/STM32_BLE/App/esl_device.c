@@ -39,12 +39,12 @@ extern ADC_HandleTypeDef hadc;
     - Width (uint16) = 0x00C8  (200 pixels)
     - Height (uint16) = 0x00C8 (200 pixels)
     - Display_Type (uint8) = 0x01 (black white) */
-uint8_t ESL_Display_Info[] = {0xC8, 0x00, 0xC8, 0x00, 0x01};
+const uint8_t ESL_Display_Info[] = {0xC8, 0x00, 0xC8, 0x00, 0x01};
 
 /* ESL Sensor Information Characteristic fields values for one sensor (battery):
    - Size = 0x00
    - Sensor_Type: Present Input Voltage Property ID  */
-uint8_t ESL_Sensor_info[] = {0x00, PRESENT_INPUT_VOLTAGE_PROP_ID & 0xFF, (PRESENT_INPUT_VOLTAGE_PROP_ID >> 8) & 0xFF};
+const uint8_t ESL_Sensor_info[] = {0x00, PRESENT_INPUT_VOLTAGE_PROP_ID & 0xFF, (PRESENT_INPUT_VOLTAGE_PROP_ID >> 8) & 0xFF};
 
 /* The ESL LED Information characteristic is an array of one or more octets in 
    which each octet represents an LED that is supported by the ESL.
@@ -52,7 +52,7 @@ uint8_t ESL_Sensor_info[] = {0x00, PRESENT_INPUT_VOLTAGE_PROP_ID & 0xFF, (PRESEN
     - index 0: LED Blue  01110000 = 0x70 
     - index 1: LED Green 01001100 = 0x4C 
     - index 2: LED Red   01000011 = 0x43  */ 
-uint8_t ESL_LED_info[] = {0x70, 0x4c, 0x43};
+const uint8_t ESL_LED_info[] = {0x70, 0x4c, 0x43};
 
 typedef struct
 {

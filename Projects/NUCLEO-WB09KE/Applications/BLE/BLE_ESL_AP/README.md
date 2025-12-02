@@ -66,7 +66,7 @@ Connectivity, BLE, BLE protocol, BLE PAwR, ESL
 ### __Hardware and Software environment__
 
   - This application runs on STM32WB0 Nucleo board.
-  - Another STM32WB0 Nucleo board or a STEVAL-ESL1KCB is necessary to run BLE_ESL application.
+  - Another STM32WB0 Nucleo board is necessary to run BLE_ESL application.
     
 ### __How to use it?__
 
@@ -76,7 +76,7 @@ In order to make the program work, you must do the following:
  - Rebuild all files and load your image into target memory.
  - Open a serial terminal (with settings 115200-8-N-1 and \<CR\> transmission at end of line).
  - Reset the board to run the example.
- - Run BLE_ESL on another Nucleo board or STEVAL-ESL1KCB.
+ - Run BLE_ESL on another Nucleo board.
  - Launch *ATE* to enable echo.
  - Launch *AT+SCAN* to discover the ESL: *+SCAN: 0,0280E1AA0001* should be printed on the terminal.
  - Start ESL provisioning, e.g. with *AT+ADD=0,0280e1aa0001,1,2*, where 1 is the group ID and 2 is the ESL ID.
@@ -84,7 +84,7 @@ In order to make the program work, you must do the following:
    - ping the board
    - control an LED
    - read some sensor data
-   - set an image (images can be displayed on STEVAL-ESL1KCB)
+   - set an image (only for testing purpose: images cannot be displayed on Nucleo boards)
  - Data can be sent with Object Transfer Profile to provide an image:
    - Connect to an associated ESL, e.g. with *AT+CONN=1,2*.
    - Select an image to be written by providing an image name, e.g. *AT+OTPSEARCH=Image 1*.

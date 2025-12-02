@@ -222,7 +222,7 @@ void ESL_APP_Init(void)
      ESL shall transition to the Unassociated state */
   ESL_APP_Context.Unassociate_timer_Id.callback = ESL_APP_UnassociatedStateTimerCB;
   
-  ESL_APP_Context.Disconnection_timer_Id.callback = disconnection_delay;    
+  ESL_APP_Context.Disconnection_timer_Id.callback = disconnection_delay;
 }
 
 void ESL_APP_ConnectionComplete(uint16_t connection_handle, uint16_t sync_handle, uint8_t Peer_Address_Type, uint8_t Peer_Address[6])
@@ -722,7 +722,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
           APP_DBG_MSG("*** Synchronized State\n");
           ESL_APP_Context.state = ESL_STATE_SYNCHRONIZED;
           /* Delay for disconnection */
-          HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Disconnection_timer_Id, 100);
+          HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Disconnection_timer_Id, 200);
         }
         /* If an ESL receives the Update Complete command and it is not synchronized, 
            the ESL shall wait for synchronization to be established and then terminate 
@@ -743,7 +743,7 @@ static uint8_t TLV_OpCode_handling(uint8_t *p_cmd, uint8_t opcode, uint8_t esl_c
           HOST_TO_LE_16(&esl_payload_resp[resp_idx + 1], ESL_APP_Context.basic_state);
           resp_idx += GET_LENGTH_FROM_OPCODE(esl_payload_resp[resp_idx]);
           
-          /* Start a timer to unassociate after a while. Do not unassociate imediately,
+          /* Start a timer to unassociate after a while. Do not unassociate immediately,
              otherwise we will notbe able to send back the response. */
           HAL_RADIO_TIMER_StartVirtualTimer(&ESL_APP_Context.Unassociate_timer_Id, 1000);
         }

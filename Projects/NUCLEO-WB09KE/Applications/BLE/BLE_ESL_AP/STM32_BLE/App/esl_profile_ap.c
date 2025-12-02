@@ -57,7 +57,7 @@ typedef struct {
 typedef struct {
   tListNode cmd_queue;
   uint8_t adv_packet_len;
-  ALIGN(4) uint8_t unencrypted_payload[MAX_UNENCRYPTED_ADV_PAYLOAD]; /* alignement needed for encryption */
+  ALIGN(4) uint8_t unencrypted_payload[MAX_UNENCRYPTED_ADV_PAYLOAD]; /* alignment needed for encryption */
   uint8_t adv_packet[MAX_ADV_PAYLOAD];
 } esl_group_info_t;
 
@@ -171,7 +171,7 @@ uint8_t ESL_AP_StoreESLInfo(const esl_info_t *p_esl_info)
   status = NVMDB_AppendRecord(&esl_db_h, ESL_AP_ESL_INFO_RECORD_TYPE, 0, NULL, sizeof(esl_info_t), p_esl_info);
   if(status != NVMDB_STATUS_OK)
   {
-    APP_DBG_MSG("Error while adding record in NVM\n");
+    APP_DBG_MSG("Error while adding record in NVM (%d)\n", status);
     return 2;
   }
   
@@ -949,7 +949,7 @@ void ESL_AP_SubeventDataRequest(uint8_t subevent)
        response packet is not received. So the command is removed at next data
        request event. This will be fixed in next version of BLE stack. 
        This workaround does not work if a subevent data request is received
-       before next reponse report. */
+       before next response report. */
     /* Remove command from list if transmission count has reached 0. */
     if(current_node_p->tx_count == 0)
     {
@@ -980,7 +980,7 @@ void ESL_AP_SubeventDataRequest(uint8_t subevent)
     return;
   }
   
-  unencrypted_payload_p[0] = curr_payload_len - 1;    /* Lenght of following data. */
+  unencrypted_payload_p[0] = curr_payload_len - 1;    /* length of following data. */
   
   /*
   APP_DBG_MSG("Packet:\n"); 
@@ -1204,20 +1204,23 @@ void ESL_AP_UpdatingStateTransition(void)
 
 void ESL_AP_ESLConnected(uint16_t conn_handle, uint8_t bd_address_type, const uint8_t bd_address[6])
 {
+#ifndef PTS_OTP
   NVMDB_HandleType db_h;
-    
+
   if(!ESL_AP_Context.provisioning)
   {
     /* We are connected to a configured ESL. */
     if(ESL_AP_GetESLInfoByBDAddress(bd_address_type, bd_address, &ESL_AP_Context.conn_esl_info, &db_h) != 0)
     {
       /* This should not happen since we should have already checked that there is a record before connecting. */
+      
       aci_gap_terminate(conn_handle, BLE_ERROR_TERMINATED_REMOTE_USER);
       return;
     }
   }
+#endif
   
-  UTIL_SEQ_SetTask( 1U << CFG_TASK_DISCOVER_SERVICES_ID, CFG_SEQ_PRIO_0);
+  GATT_CLIENT_APP_DiscoverServices(conn_handle);
 }
 
 void ESL_AP_DisconnectionComplete(uint16_t conn_handle)

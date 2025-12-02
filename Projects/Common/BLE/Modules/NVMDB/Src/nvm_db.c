@@ -1849,7 +1849,7 @@ NVMDB_status_t NVMDB_FindNextRecord(NVMDB_HandleType *handle_p, uint8_t record_t
  * @param[in]  header Data to be stored at the beginning of the record. It can be used by the
  *             application to add an header to the record. The number of bytes must be a
  *             multiple of 4. Set it to NULL if no header has to be added to the record.
- * @param      header_length Length of bytes in data.
+ * @param      data_length Length of bytes in data.
  * @param[in]  data Data to be stored inside the record.
  * @retval     Indicates if the function executed successfully.
  */

@@ -96,9 +96,7 @@
 #define PAWR_NUM_RESPONSE_SLOTS         8
 
 #define PAWR_INTERVAL_MS                (PAWR_SUBEVENT_INTERVAL_MS * PAWR_NUM_SUBEVENTS + 400)
-   
-#define SCAN_INTERVAL_MS                100
-#define SCAN_WINDOW_MS                  100
+
 #define CONNECTION_INTERVAL_MS          40
 #define SUPERVISION_TIMEOUT_MS          500
 
@@ -193,7 +191,7 @@
 
 /**
  * Maximum number of subevent data that can be queued in the controller.
- */    
+ */
 #define CFG_BLE_PAWR_SUBEVENT_DATA_COUNT_MAX            (8U)
 
 /**
@@ -255,6 +253,12 @@
 #define CFG_BLE_NUM_CIS_MAX                             (2U)
 
 /**
+* Maximum number of simultaneous Link Layer procedures that can be managed, in addition to the minimum required by the stack.
+*  The minimum number guarantees one LL procedure initiated by the peer for each link, one LL procedure automatically initiated by the Controller and one LL procedure initiated by the Host.
+*/
+#define  CFG_BLE_EXTRA_LL_PROCEDURE_CONTEXTS        (0)
+
+/**
  * Size of the internal FIFO used for critical controller events produced by the
  * ISR (e.g. rx data packets).
  */
@@ -314,6 +318,7 @@
                                                         CFG_BLE_NUM_BRC_BIS_MAX,\
                                                         CFG_BLE_NUM_CIG_MAX,\
                                                         CFG_BLE_NUM_CIS_MAX,\
+                                                        CFG_BLE_EXTRA_LL_PROCEDURE_CONTEXTS,\
                                                         CFG_BLE_ISR0_FIFO_SIZE,\
                                                         CFG_BLE_ISR1_FIFO_SIZE,\
                                                         CFG_BLE_USER_FIFO_SIZE))

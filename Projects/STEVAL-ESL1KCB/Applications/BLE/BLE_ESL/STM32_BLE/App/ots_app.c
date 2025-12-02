@@ -234,7 +234,7 @@ void OTS_APP_GetObjInfo(uint8_t obj_index, OTS_ObjInfo_t *info)
   info->alloc_size = OBJ_ALLOC_SIZE;
 }
 
-/* A dedicated sector can be used to avoid too many writes. Hovever, the
+/* A dedicated sector can be used to avoid too many writes. However, the
    size only changes if truncation is active, which should not happen since images
    should have fixed size in our case. */
 static void updateObjectSize(uint32_t size)
@@ -451,6 +451,8 @@ void OTS_APP_L2CAPChannelClosed(void)
   
   OTS_APP_Context.cid = 0;
   OTS_APP_Context.write_started = false;
+  
+  HAL_RADIO_TIMER_StopVirtualTimer(&OTS_APP_Context.timer);
   
   if(OTS_APP_Context.flash_buff_valid == true)
   {

@@ -66,8 +66,6 @@ typedef struct
 {
   GATT_CLIENT_APP_State_t state;
 
-  APP_BLE_ConnStatus_t connStatus;
- 
   uint16_t connHdl;
 
   uint16_t ALLServiceStartHdl;
@@ -146,6 +144,17 @@ typedef struct
 
 }BleClientAppContext_t;
 
+typedef enum
+{
+  PROC_GATT_DISC_ALL_PRIMARY_SERVICES,
+  PROC_GATT_DISC_ALL_CHARS,
+  PROC_GATT_DISC_ALL_DESCS,
+  PROC_GATT_ENABLE_ALL_NOTIFICATIONS,
+  /* USER CODE BEGIN ProcGattId_t*/
+
+  /* USER CODE END ProcGattId_t */
+}ProcGattId_t;
+
 /* Private defines ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
@@ -160,8 +169,8 @@ typedef struct
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-static BleClientAppContext_t a_ClientContext[CFG_MAX_NUM_CONNECTED_SERVERS];
-static uint16_t gattCharValueHdl = 0;
+
+static BleClientAppContext_t a_ClientContext[CFG_BLE_NUM_CLIENT_CONTEXTS];
 
 /* USER CODE BEGIN PV */
 
@@ -185,6 +194,7 @@ static void gatt_Notification(GATT_CLIENT_APP_Notification_evt_t *p_Notif);
 static void client_discover_all(void);
 static void gatt_cmd_resp_release(void);
 static void gatt_cmd_resp_wait(void);
+static uint8_t gatt_procedure(uint8_t index, ProcGattId_t GattProcId);
 /* USER CODE BEGIN PFP */
 static void context_init(uint8_t index);
 static void ECPTimeout(void *arg);
@@ -192,7 +202,6 @@ static void print_Info_Char(void);
 static uint8_t ReadLongChar(uint16_t ValueHdl, uint16_t Offset);
 static void set_ECP_Failed(bool bValue);
 static uint8_t ReadInfoChar(uint16_t ValueHdl);
-static uint8_t ProcedureGatt(uint8_t index, ProcGattId_t GattProcId);
 /* USER CODE END PFP */
 
 /* Functions Definition ------------------------------------------------------*/
@@ -203,21 +212,26 @@ static uint8_t ProcedureGatt(uint8_t index, ProcGattId_t GattProcId);
  */
 void GATT_CLIENT_APP_Init(void)
 {
-  uint8_t index = 0;
+  int ret;
+
   /* USER CODE BEGIN GATT_CLIENT_APP_Init_1 */
 
   /* USER CODE END GATT_CLIENT_APP_Init_1 */
 
-  for(index = 0; index < CFG_MAX_NUM_CONNECTED_SERVERS; index++)
+  for(uint8_t index = 0; index < CFG_BLE_NUM_CLIENT_CONTEXTS; index++)
   {
-    a_ClientContext[index].connStatus = APP_BLE_IDLE;
+    a_ClientContext[index].connHdl = 0xFFFF;
+    a_ClientContext[index].state = GATT_CLIENT_APP_DISCONNECTED;
   }
 
   /**
    *  Register the event handler to the BLE controller
    */
-  BLEEVT_RegisterGattEvtHandler(EventHandler);
-
+  ret = BLEEVT_RegisterGattEvtHandler(EventHandler);
+  if (ret != 0)
+  {
+    Error_Handler();
+  }
   /* Register a task allowing to discover all services and characteristics and enable all notifications */
   UTIL_SEQ_RegTask(1U << CFG_TASK_DISCOVER_SERVICES_ID, UTIL_SEQ_RFU, client_discover_all);
   
@@ -234,7 +248,7 @@ void GATT_CLIENT_APP_Init(void)
 static void context_init(uint8_t index)
 {                                   
   memset(&a_ClientContext[index], 0, sizeof(BleClientAppContext_t));
-  a_ClientContext[index].state = GATT_CLIENT_APP_IDLE;
+  a_ClientContext[index].state = GATT_CLIENT_APP_DISCONNECTED;
   a_ClientContext[index].connHdl = 0xFFFF;
   
   /* When the AP writes to the ECP, the AP shall start a timer with the value 
@@ -255,41 +269,63 @@ void GATT_CLIENT_APP_Notification(GATT_CLIENT_APP_ConnHandle_Notif_evt_t *p_Noti
     /* USER CODE END ConnOpcode */
 
     case PEER_CONN_HANDLE_EVT :
-      /* USER CODE BEGIN PEER_CONN_HANDLE_EVT */
-    {  
-      uint8_t index = 0;
+      {
+        uint8_t index;
+
+        for(index = 0; index < CFG_BLE_NUM_CLIENT_CONTEXTS; index++)
+        {
+          if(a_ClientContext[index].state == GATT_CLIENT_APP_DISCONNECTED)
+          {
+            a_ClientContext[index].connHdl = p_Notif->ConnHdl;
+            a_ClientContext[index].state = GATT_CLIENT_APP_CONNECTED;
+            /* USER CODE BEGIN PEER_CONN_HANDLE_EVT_1 */
+            context_init(index);
       
-      context_init(index);
+            set_ECP_Failed(false);
       
-      set_ECP_Failed(false);
-      
-      a_ClientContext[index].state = GATT_CLIENT_APP_CONNECTED;
-      a_ClientContext[index].connHdl = p_Notif->ConnHdl;      
-      a_ClientContext[0].att_mtu = 23;      
-      OTP_CLIENT_ConnectionComplete(&a_ClientContext[0].OTSHandles, a_ClientContext[0].connHdl);  
-    }  
-      /* USER CODE END PEER_CONN_HANDLE_EVT */
+            a_ClientContext[index].state = GATT_CLIENT_APP_CONNECTED;
+            a_ClientContext[index].connHdl = p_Notif->ConnHdl;      
+            a_ClientContext[index].att_mtu = 23;
+            OTP_CLIENT_ConnectionComplete(&a_ClientContext[index].OTSHandles, a_ClientContext[index].connHdl);
+            /* USER CODE END PEER_CONN_HANDLE_EVT_1 */
+
+            break;
+          }
+        }
+        if(index == CFG_BLE_NUM_CLIENT_CONTEXTS)
+        {
+          APP_DBG_MSG("Error: reached maximum number of connected servers!\n");
+          aci_gap_terminate(p_Notif->ConnHdl, BLE_ERROR_TERMINATED_REMOTE_USER);
+        }
+
+        /* USER CODE BEGIN PEER_CONN_HANDLE_EVT */
+        
+        /* USER CODE END PEER_CONN_HANDLE_EVT */
+      }
       break;
 
     case PEER_DISCON_HANDLE_EVT :
-      /* USER CODE BEGIN PEER_DISCON_HANDLE_EVT */
-    {
-      uint8_t index = 0;
-
-      while(index < CFG_MAX_NUM_CONNECTED_SERVERS)
       {
-        if(a_ClientContext[index].connHdl == p_Notif->ConnHdl)
+        for(uint8_t index = 0; index < CFG_BLE_NUM_CLIENT_CONTEXTS; index++)
         {
-          a_ClientContext[index].state = GATT_CLIENT_APP_IDLE;
-          a_ClientContext[index].connHdl = 0xFFFF;
-          HAL_RADIO_TIMER_StopVirtualTimer(&a_ClientContext[index].ECP_timer_Id);
-          
-          break;
+          if(a_ClientContext[index].connHdl == p_Notif->ConnHdl)
+          {
+            /* Set all handles to 0. */
+            memset(&a_ClientContext[index], 0, sizeof(BleClientAppContext_t));
+            a_ClientContext[index].connHdl = 0xFFFF;
+            a_ClientContext[index].state = GATT_CLIENT_APP_DISCONNECTED;
+
+            /* USER CODE BEGIN PEER_DISCON_HANDLE_EVT_1 */
+            HAL_RADIO_TIMER_StopVirtualTimer(&a_ClientContext[index].ECP_timer_Id);
+            /* USER CODE END PEER_DISCON_HANDLE_EVT_1 */
+
+            break;
+          }
         }
-        index++;
+        /* USER CODE BEGIN PEER_DISCON_HANDLE_EVT */
+        
+        /* USER CODE END PEER_DISCON_HANDLE_EVT */
       }
-    }
-      /* USER CODE END PEER_DISCON_HANDLE_EVT */
       break;
 
     default:
@@ -304,34 +340,33 @@ void GATT_CLIENT_APP_Notification(GATT_CLIENT_APP_ConnHandle_Notif_evt_t *p_Noti
   return;
 }
 
-uint8_t GATT_CLIENT_APP_GetState(uint8_t index)
+void GATT_CLIENT_APP_DiscoverServices(uint16_t connection_handle)
 {
-  return a_ClientContext[index].state;
-}
-
-void GATT_CLIENT_APP_DiscoverServices(uint8_t index)
-{
-  ProcedureGatt(index, PROC_GATT_DISC_ALL_PRIMARY_SERVICES);
-  ProcedureGatt(index, PROC_GATT_DISC_ALL_CHARS);
-  ProcedureGatt(index, PROC_GATT_DISC_ALL_DESCS);
-  ProcedureGatt(index, PROC_GATT_ENABLE_ALL_NOTIFICATIONS);
-#ifndef PTS_OTP  
-  if (ESL_AP_Context.configuring)
+  for(uint8_t index = 0; index < CFG_BLE_NUM_CLIENT_CONTEXTS; index++)
   {
-    GATT_CLIENT_APP_ReadAllInfo();
-    GATT_CLIENT_APP_ConfigureESL();
+    if(a_ClientContext[index].connHdl == connection_handle)
+    {
+      a_ClientContext[index].state = GATT_CLIENT_APP_DISCOVER_SERVICES;
+
+      /* USER CODE BEGIN GATT_CLIENT_APP_Discover_services */
+
+      /* USER CODE END GATT_CLIENT_APP_Discover_services */
+
+      UTIL_SEQ_SetTask( 1U << CFG_TASK_DISCOVER_SERVICES_ID, CFG_SEQ_PRIO_0);
+
+      break;
+    }
   }
-#endif
-  
+
   return;
 }
 
-static uint8_t ProcedureGatt(uint8_t index, ProcGattId_t GattProcId)
+uint8_t gatt_procedure(uint8_t index, ProcGattId_t GattProcId)
 {
   tBleStatus result = BLE_STATUS_SUCCESS;
   uint8_t status;
 
-  if (index >= CFG_MAX_NUM_CONNECTED_SERVERS)
+  if (index >= CFG_BLE_NUM_CLIENT_CONTEXTS)
   {
     status = 1;
   }
@@ -342,18 +377,17 @@ static uint8_t ProcedureGatt(uint8_t index, ProcGattId_t GattProcId)
     {
       case PROC_GATT_DISC_ALL_PRIMARY_SERVICES:
       {
-        a_ClientContext[index].state = GATT_CLIENT_APP_DISCOVER_SERVICES;
-
-        APP_DBG_MSG("\nGATT services discovery\n");
+        APP_DBG_MSG("GATT services discovery\n");
         result = aci_gatt_clt_disc_all_primary_services(a_ClientContext[index].connHdl, BLE_GATT_UNENHANCED_ATT_L2CAP_CID);
 
         if (result == BLE_STATUS_SUCCESS)
         {
           gatt_cmd_resp_wait();
+          APP_DBG_MSG("PROC_GATT_CTL_DISC_ALL_PRIMARY_SERVICES services discovered Successfully\n\n");
         }
         else
         {
-          APP_DBG_MSG("aci_gatt_clt_disc_all_primary_services fail, status 0x%02X\n\n", result);
+          APP_DBG_MSG("PROC_GATT_CTL_DISC_ALL_PRIMARY_SERVICES aci_gatt_clt_disc_all_primary_services cmd NOK status =0x%02X\n\n", result);
         }
       }
 
@@ -361,9 +395,8 @@ static uint8_t ProcedureGatt(uint8_t index, ProcGattId_t GattProcId)
 
       case PROC_GATT_DISC_ALL_CHARS:
       {
-        a_ClientContext[index].state = GATT_CLIENT_APP_DISCOVER_CHARACS;
-
-        APP_DBG_MSG("\nDiscover all Characteristics (handles [0x%04X - 0x%04X])\n",
+        APP_DBG_MSG("DISCOVER_ALL_CHARS ConnHdl=0x%04X ALLServiceHandle[0x%04X - 0x%04X]\n",
+                          a_ClientContext[index].connHdl,
                           0x0001,
                           0xFFFF);
         result = aci_gatt_clt_disc_all_char_of_service(
@@ -374,39 +407,40 @@ static uint8_t ProcedureGatt(uint8_t index, ProcGattId_t GattProcId)
         if (result == BLE_STATUS_SUCCESS)
         {
           gatt_cmd_resp_wait();
+          APP_DBG_MSG("All characteristics discovered Successfully\n\n");
         }
         else
         {
-          APP_DBG_MSG("aci_gatt_clt_disc_all_char_of_service fail, status 0x%02X\n\n", result);
+          APP_DBG_MSG("All characteristics discovery Failed, status =0x%02X\n\n", result);
         }
       }
       break; /* PROC_GATT_DISC_ALL_CHARS */
 
       case PROC_GATT_DISC_ALL_DESCS:
       {
-        a_ClientContext[index].state = GATT_CLIENT_APP_DISCOVER_WRITE_DESC;
-
-        APP_DBG_MSG("\nDiscover all Characteristics Descriptors [0x%04X - 0x%04X]\n",
+        APP_DBG_MSG("DISCOVER_ALL_CHAR_DESCS [0x%04X - 0x%04X]\n",
                          0x0001,
                          0xFFFF);
         result = aci_gatt_clt_disc_all_char_desc(
                            a_ClientContext[index].connHdl,
-			   BLE_GATT_UNENHANCED_ATT_L2CAP_CID,
+                           BLE_GATT_UNENHANCED_ATT_L2CAP_CID,
                            0x0001,
                            0xFFFF);
         if (result == BLE_STATUS_SUCCESS)
         {
           gatt_cmd_resp_wait();
+          APP_DBG_MSG("All characteristic descriptors discovered Successfully\n\n");
         }
         else
         {
-          APP_DBG_MSG("aci_gatt_clt_disc_all_char_desc fail, status 0x%02X\n\n", result);
+          APP_DBG_MSG("All characteristic descriptors discovery Failed, status =0x%02X\n\n", result);
         }
       }
       break; /* PROC_GATT_DISC_ALL_DESCS */
       case PROC_GATT_ENABLE_ALL_NOTIFICATIONS:
       {
         uint16_t enable; /* Buffer must be kept valid for aci_gatt_clt_write until a gatt procedure complete is received. */
+
         if (a_ClientContext[index].ServiceChangedCharDescHdl != 0x0000)
         {
           enable = 0x0002;
@@ -537,7 +571,7 @@ static BLEEVT_EvtAckStatus_t EventHandler(aci_blecore_event *p_evt)
       {
         APP_DBG_MSG("Service Changed Indication\n");
         
-        UTIL_SEQ_SetTask( 1U << CFG_TASK_DISCOVER_SERVICES_ID, CFG_SEQ_PRIO_0);
+        GATT_CLIENT_APP_DiscoverServices(p_evt_rsp->Connection_Handle);
       }      
       else if(p_evt_rsp->Attribute_Handle == a_ClientContext[0].OTSHandles.ObjListCPValueHdl)
       {
@@ -601,7 +635,7 @@ static BLEEVT_EvtAckStatus_t EventHandler(aci_blecore_event *p_evt)
     {
       aci_att_clt_read_resp_event_rp0 * clt_read_resp;
       clt_read_resp = (aci_att_clt_read_resp_event_rp0 *)p_evt->data;
-      //APP_DBG_MSG("  GATT Read Response lenght: 0x%02x \n", clt_read_resp->Event_Data_Length);
+      //APP_DBG_MSG("  GATT Read Response length: 0x%02x \n", clt_read_resp->Event_Data_Length);
       a_ClientContext[0].read_char_len = clt_read_resp->Event_Data_Length;
       memcpy(a_ClientContext[0].read_char, clt_read_resp->Attribute_Value, a_ClientContext[0].read_char_len);
       a_ClientContext[0].read_char_offset = a_ClientContext[0].read_char_len;
@@ -612,7 +646,7 @@ static BLEEVT_EvtAckStatus_t EventHandler(aci_blecore_event *p_evt)
     {
       aci_att_clt_read_blob_resp_event_rp0 * clt_read_resp;
       clt_read_resp = (aci_att_clt_read_blob_resp_event_rp0 *)p_evt->data;
-      APP_DBG_MSG("  GATT Read Blob Response lenght: 0x%02x \n", clt_read_resp->Event_Data_Length);
+      APP_DBG_MSG("  GATT Read Blob Response length: 0x%02x \n", clt_read_resp->Event_Data_Length);
       a_ClientContext[0].read_char_len += clt_read_resp->Event_Data_Length;
       memcpy(a_ClientContext[0].read_char + a_ClientContext[0].read_char_offset, clt_read_resp->Attribute_Value, a_ClientContext[0].read_char_len);
       a_ClientContext[0].read_char_offset = a_ClientContext[0].read_char_len;
@@ -672,7 +706,7 @@ static void gatt_parse_services(aci_att_clt_read_by_group_type_resp_event_rp0 *p
 //  APP_DBG_MSG("ACI_ATT_READ_BY_GROUP_TYPE_RESP_VSEVT_CODE - ConnHdl=0x%04X\n",
 //                p_evt->Connection_Handle);
 
-  for (index = 0 ; index < CFG_MAX_NUM_CONNECTED_SERVERS ; index++)
+  for (index = 0 ; index < CFG_BLE_NUM_CLIENT_CONTEXTS ; index++)
   {
     if (a_ClientContext[index].connHdl == p_evt->Connection_Handle)
     {
@@ -714,7 +748,8 @@ static void gatt_parse_services(aci_att_clt_read_by_group_type_resp_event_rp0 *p
       ServiceStartHdl =  UNPACK_2_BYTE_PARAMETER(&p_evt->Attribute_Data_List[uuid_offset - 4]);
       ServiceEndHdl = UNPACK_2_BYTE_PARAMETER(&p_evt->Attribute_Data_List[uuid_offset - 2]);
       uuid = UNPACK_2_BYTE_PARAMETER(&p_evt->Attribute_Data_List[uuid_offset + uuid_short_offset]);
-      APP_DBG_MSG("UUID=0x%04X, handle [0x%04X - 0x%04X]", uuid, ServiceStartHdl,ServiceEndHdl);
+      APP_DBG_MSG("  %d/%d short UUID=0x%04X, handle [0x%04X - 0x%04X]",
+                   i + 1, numServ, uuid, ServiceStartHdl,ServiceEndHdl);
 
       /* complete context fields */
       if ( (a_ClientContext[index].ALLServiceStartHdl == 0x0000) || (ServiceStartHdl < a_ClientContext[index].ALLServiceStartHdl) )
@@ -808,7 +843,7 @@ static void gatt_parse_chars(aci_att_clt_read_by_type_resp_event_rp0 *p_evt)
 //  APP_DBG_MSG("ACI_ATT_READ_BY_TYPE_RESP_VSEVT_CODE - ConnHdl=0x%04X\n",
 //                p_evt->Connection_Handle);
 
-  for (index = 0 ; index < CFG_MAX_NUM_CONNECTED_SERVERS ; index++)
+  for (index = 0 ; index < CFG_BLE_NUM_CLIENT_CONTEXTS ; index++)
   {
     if (a_ClientContext[index].connHdl == p_evt->Connection_Handle)
     {
@@ -858,7 +893,8 @@ static void gatt_parse_chars(aci_att_clt_read_by_type_resp_event_rp0 *p_evt)
 
       if ( (uuid != 0x0) && (CharProperties != 0x0) && (CharStartHdl != 0x0) && (CharValueHdl != 0) )
       {
-        APP_DBG_MSG("UUID=0x%04X, Properties=0x%04X, CharHandle [0x%04X - 0x%04X]", uuid, CharProperties, CharStartHdl, CharValueHdl);
+        APP_DBG_MSG("    %d/%d short UUID=0x%04X, Properties=0x%04X, CharHandle [0x%04X - 0x%04X]",
+                     i + 1, numHdlValuePair, uuid, CharProperties, CharStartHdl, CharValueHdl);
 
         if (uuid == DEVICE_NAME_UUID)
         {
@@ -1020,11 +1056,13 @@ static void gatt_parse_descs(aci_att_clt_find_info_resp_event_rp0 *p_evt)
   uint16_t uuid, handle;
   uint8_t uuid_offset, uuid_size, uuid_short_offset;
   uint8_t i, numDesc, handle_uuid_pair_size, index;
+  static uint16_t gattCharStartHdl = 0;
+  static uint16_t gattCharValueHdl = 0;
 
 //  APP_DBG_MSG("ACI_ATT_FIND_INFO_RESP_VSEVT_CODE - ConnHdl=0x%04X\n",
 //              p_evt->Connection_Handle);
 
-  for (index = 0 ; index < CFG_MAX_NUM_CONNECTED_SERVERS ; index++)
+  for (index = 0 ; index < CFG_BLE_NUM_CLIENT_CONTEXTS ; index++)
   {
     if (a_ClientContext[index].connHdl == p_evt->Connection_Handle)
     {
@@ -1069,15 +1107,21 @@ static void gatt_parse_descs(aci_att_clt_find_info_resp_event_rp0 *p_evt)
       else if (uuid == CHARACTERISTIC_UUID)
       {
         /* reset UUID & handle */
+        gattCharStartHdl = 0;
         gattCharValueHdl = 0;
+
+        gattCharStartHdl = handle;
         //APP_DBG_MSG("CHARACTERISTIC_UUID=0x%04X CharStartHandle=0x%04X\n", uuid, handle);
       }
       else if ( (uuid == CHAR_EXTENDED_PROPERTIES_DESCRIPTOR_UUID)
              || (uuid == CLIENT_CHAR_CONFIG_DESCRIPTOR_UUID) )
       {
 
-        APP_DBG_MSG("Descriptor UUID=0x%04X, handle=0x%04X",
-                      uuid, handle);
+        APP_DBG_MSG("Descriptor UUID=0x%04X, handle=0x%04X-0x%04X-0x%04X",
+                      uuid,
+                      gattCharStartHdl,
+                      gattCharValueHdl,
+                      handle);
         if (a_ClientContext[index].ServiceChangedCharValueHdl == gattCharValueHdl)
         {
           a_ClientContext[index].ServiceChangedCharDescHdl = handle;
@@ -1092,12 +1136,12 @@ static void gatt_parse_descs(aci_att_clt_find_info_resp_event_rp0 *p_evt)
         else if (a_ClientContext[index].OTSHandles.ObjActionCPValueHdl == gattCharValueHdl)
         {
           a_ClientContext[index].OTSHandles.ObjActionCPCCCDHdl = handle;
-          APP_DBG_MSG(", Oject Action Control Point CCCD found: handle=0x%04X\n", handle);
+          APP_DBG_MSG(", Object Action Control Point CCCD found: handle=0x%04X\n", handle);
         }
         else if (a_ClientContext[index].OTSHandles.ObjListCPValueHdl == gattCharValueHdl)
         {
           a_ClientContext[index].OTSHandles.ObjListCPCCCDHdl = handle;
-          APP_DBG_MSG(", Oject List Control Point CCCD found: handle=0x%04X\n", handle);
+          APP_DBG_MSG(", Object List Control Point CCCD found: handle=0x%04X\n", handle);
         }
 /* USER CODE END gatt_parse_descs_1 */
         else
@@ -1136,7 +1180,7 @@ static void gatt_parse_notification(aci_gatt_clt_notification_event_rp0 *p_evt)
   GATT_CLIENT_APP_Notification_evt_t Notification;
   uint8_t index;
 
-  for (index = 0 ; index < CFG_MAX_NUM_CONNECTED_SERVERS ; index++)
+  for (index = 0 ; index < CFG_BLE_NUM_CLIENT_CONTEXTS ; index++)
   {
     if (a_ClientContext[index].connHdl == p_evt->Connection_Handle)
     {
@@ -1170,22 +1214,47 @@ static void gatt_parse_notification(aci_gatt_clt_notification_event_rp0 *p_evt)
 }
 
 static void client_discover_all(void)
-{ 
+{
+  uint8_t index;
   tBleStatus status;
 
-  /* Exchange configuration must be done only once. If alraeady done, it will return error.  */
-  status = aci_gatt_clt_exchange_config(a_ClientContext[0].connHdl);
-  if (status != BLE_STATUS_SUCCESS)
+  for(index = 0; index < CFG_BLE_NUM_CLIENT_CONTEXTS; index++)
   {
-    APP_DBG_MSG("aci_gatt_clt_exchange_config failure: reason=0x%02X\n", status);
+    if(a_ClientContext[index].state == GATT_CLIENT_APP_DISCOVER_SERVICES)
+    {
+    	
+      /* Exchange configuration must be done only once. If alraeady done, it will return error.  */
+      status = aci_gatt_clt_exchange_config(a_ClientContext[0].connHdl);
+      if (status != BLE_STATUS_SUCCESS)
+      {
+        APP_DBG_MSG("aci_gatt_clt_exchange_config failure: reason=0x%02X\n", status);
+      }
+      else
+      {
+        APP_DBG_MSG("==>> aci_gatt_clt_exchange_config : Success\n");
+        gatt_cmd_resp_wait();
+      } 
+      gatt_procedure(index, PROC_GATT_DISC_ALL_PRIMARY_SERVICES);
+      gatt_procedure(index, PROC_GATT_DISC_ALL_CHARS);
+      gatt_procedure(index, PROC_GATT_DISC_ALL_DESCS);
+      gatt_procedure(index, PROC_GATT_ENABLE_ALL_NOTIFICATIONS);
+      
+#ifndef PTS_OTP  
+      if (ESL_AP_Context.configuring)
+      {
+        GATT_CLIENT_APP_ReadAllInfo();
+        GATT_CLIENT_APP_ConfigureESL();
+       }
+#endif
+
+      a_ClientContext[index].state = GATT_CLIENT_APP_CONNECTED;
+
+      /* Check if in the meantime another server has been connected. */
+      UTIL_SEQ_SetTask( 1U << CFG_TASK_DISCOVER_SERVICES_ID, CFG_SEQ_PRIO_0);
+
+      break;
+    }
   }
-  else
-  {
-    APP_DBG_MSG("==>> aci_gatt_clt_exchange_config : Success\n");
-    gatt_cmd_resp_wait();
-  } 
-  
-  GATT_CLIENT_APP_DiscoverServices(0);
 
   return;
 }
@@ -1642,4 +1711,3 @@ tBleStatus GATT_CLIENT_APP_WriteChar(uint16_t ValueHdl, uint8_t *data, uint16_t 
 }
 
 /* USER CODE END LF */
-
